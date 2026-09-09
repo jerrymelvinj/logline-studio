@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Navbar from "@/components/Navbar";
 import Screen01Ideate from "@/components/Screen01Ideate";
 import Screen02Canvas from "@/components/Screen02Canvas";
 import Screen03ExecutionTable from "@/components/Screen03ExecutionTable";
@@ -14,7 +15,11 @@ import {
   ChannelTemplate,
   SyncNotification,
 } from "@/lib/types";
-import { DEFAULT_CHANNEL_TEMPLATE, SAMPLE_TREND_SPARKS } from "@/lib/aiCurator";
+import {
+  DEFAULT_CHANNEL_TEMPLATE,
+  SAMPLE_TREND_SPARKS,
+  generateOfflineContentCuration,
+} from "@/lib/aiCurator";
 import {
   mergeContentRecordsDeduplicated,
   DEFAULT_GOOGLE_SHEET_URL,
@@ -38,6 +43,7 @@ export default function Home() {
 
   const [isCurating, setIsCurating] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncState, setSyncState] = useState<"live" | "syncing" | "paused">("live");
   const [notification, setNotification] = useState<SyncNotification | null>(null);
 
   // Modals
@@ -53,7 +59,10 @@ export default function Home() {
       if (storedDb) {
         const parsed = JSON.parse(storedDb);
         if (Array.isArray(parsed)) {
-          setDatabase(parsed.map((r, idx) => ({ ...r, sNo: idx + 1 })));
+          const loaded = parsed.map((r, idx) => ({ ...r, sNo: idx + 1 }));
+          setDatabase(loaded);
+          // Preload into records table as well if records is empty
+          setRecords(loaded);
         }
       }
 
@@ -72,6 +81,16 @@ export default function Home() {
     }
   }, []);
 
+  const showToast = (type: "success" | "error" | "info", message: string) => {
+    setNotification({
+      type,
+      errorMessage: message,
+    });
+    setTimeout(() => {
+      setNotification(null);
+    }, 6000);
+  };
+
   const handleSaveApiKey = (key: string) => {
     setApiKey(key);
     try {
@@ -79,6 +98,7 @@ export default function Home() {
     } catch (e) {
       console.warn(e);
     }
+    showToast("info", "Gemini API key updated.");
   };
 
   const handleSaveWebhookUrl = (url: string) => {
@@ -88,6 +108,8 @@ export default function Home() {
     } catch (e) {
       console.warn(e);
     }
+    setSyncState("live");
+    showToast("info", "Google Sheets Webhook URL saved.");
   };
 
   const handleSaveChannelTemplate = (tmpl: ChannelTemplate) => {
@@ -97,18 +119,36 @@ export default function Home() {
     } catch (e) {
       console.warn(e);
     }
+    showToast("info", "Channel profile updated.");
   };
 
-  // Screen 01 -> Add single draft item
-  const handleAddDraftItem = (item: DraftContentItem) => {
+  // Screen 01 -> Send to Canvas
+  const handleSendToCanvas = (item: DraftContentItem) => {
     setDraftItems((prev) => [...prev, item]);
     setCurrentScreen("canvas");
+    showToast("info", "Draft sent to Production Canvas.");
   };
 
-  // Screen 01 -> Load 5 realistic Trend Sparks
+  // Screen 01 -> Save as Idea
+  const handleSaveAsIdea = (item: DraftContentItem) => {
+    const curated = generateOfflineContentCuration(item, channelTemplate, database.length);
+    curated.status = "Idea / Draft";
+    const { merged } = mergeContentRecordsDeduplicated(database, [curated]);
+    setDatabase(merged);
+    setRecords(merged);
+    try {
+      localStorage.setItem(DB_STORAGE_KEY, JSON.stringify(merged));
+    } catch (e) {
+      console.warn(e);
+    }
+    showToast("success", "Draft saved to local cache.");
+  };
+
+  // Screen 01 -> Load 5 Trend Sparks
   const handleLoadTrendSparks = () => {
     setDraftItems(SAMPLE_TREND_SPARKS);
     setCurrentScreen("canvas");
+    showToast("info", "Loaded 5 AI trend sparks into Production Canvas.");
   };
 
   // Screen 02 -> Add more items to staging
@@ -127,8 +167,22 @@ export default function Home() {
     });
   };
 
-  // Screen 02 -> Curate Data with Gemini AI
-  const handleCurateData = async () => {
+  // Screen 02 -> Push to Pipeline Table
+  const handlePushToPipeline = (newRecords: ContentRecord[]) => {
+    const { merged } = mergeContentRecordsDeduplicated(database, newRecords);
+    setDatabase(merged);
+    setRecords(merged);
+    try {
+      localStorage.setItem(DB_STORAGE_KEY, JSON.stringify(merged));
+    } catch (e) {
+      console.warn(e);
+    }
+    setCurrentScreen("execution");
+    showToast("success", `Stage updated to ${newRecords[0]?.status || "Ready to Record"}.`);
+  };
+
+  // Screen 02 -> Curate with Gemini AI
+  const handleCurateWithAi = async () => {
     if (draftItems.length === 0) return;
     setIsCurating(true);
 
@@ -153,20 +207,26 @@ export default function Home() {
           ...r,
           sNo: idx + 1,
         }));
-        setRecords(reindexed);
+        const { merged } = mergeContentRecordsDeduplicated(database, reindexed);
+        setDatabase(merged);
+        setRecords(merged);
+        try {
+          localStorage.setItem(DB_STORAGE_KEY, JSON.stringify(merged));
+        } catch (e) {
+          console.warn(e);
+        }
         setCurrentScreen("execution");
-      } else {
-        throw new Error("Invalid response structure from curation engine");
+        showToast("success", `Generated ${reindexed.length} production blueprints with AI.`);
       }
     } catch (err: any) {
       console.error("Curation error:", err);
-      alert(`Error curating content: ${err.message}`);
+      showToast("error", `Curation failed: ${err.message}`);
     } finally {
       setIsCurating(false);
     }
   };
 
-  // Screen 03 -> Update single field in table
+  // Screen 03 -> Update single field
   const handleUpdateRecord = (
     index: number,
     field: keyof ContentRecord,
@@ -178,27 +238,41 @@ export default function Home() {
         ...updated[index],
         [field]: value,
       };
+      // Auto-save changes to local database cache
+      setDatabase(updated);
+      try {
+        localStorage.setItem(DB_STORAGE_KEY, JSON.stringify(updated));
+      } catch (e) {
+        console.warn(e);
+      }
+      return updated;
+    });
+
+    if (field === "status") {
+      showToast("info", `Stage updated to ${value}.`);
+    }
+  };
+
+  // Screen 03 -> Delete single record
+  const handleDeleteRecord = (index: number) => {
+    setRecords((prev) => {
+      const updated = prev.filter((_, i) => i !== index);
+      setDatabase(updated);
+      try {
+        localStorage.setItem(DB_STORAGE_KEY, JSON.stringify(updated));
+      } catch (e) {
+        console.warn(e);
+      }
       return updated;
     });
   };
 
-  // Screen 03 -> Sync to Google Sheets & update local DB
+  // Screen 03 -> Sync to Google Sheets
   const handleSyncGoogleSheets = async () => {
     if (records.length === 0) return;
     setIsSyncing(true);
-    setNotification(null);
+    setSyncState("syncing");
 
-    // 1. Deduplicate against local database
-    const { merged, addedCount: localAdded, duplicateCount: localDuplicates } =
-      mergeContentRecordsDeduplicated(database, records);
-    setDatabase(merged);
-    try {
-      localStorage.setItem(DB_STORAGE_KEY, JSON.stringify(merged));
-    } catch (e) {
-      console.warn("Could not save to localStorage:", e);
-    }
-
-    // 2. Call backend Google Sheets sync API
     try {
       const res = await fetch("/api/sync-sheets", {
         method: "POST",
@@ -212,25 +286,25 @@ export default function Home() {
       const data = await res.json();
 
       if (data.success) {
+        setSyncState("live");
         setNotification({
           type: "success",
-          savedCount: data.addedRecords ?? localAdded ?? records.length,
-          duplicateCount: data.duplicateRecords ?? localDuplicates ?? 0,
+          savedCount: data.addedRecords ?? records.length,
+          duplicateCount: data.duplicateRecords ?? 0,
         });
       } else {
+        setSyncState("paused");
         setNotification({
           type: "error",
-          errorMessage:
-            data.error ||
-            "Unable to write directly to Google Sheets. Verify Webhook URL in settings.",
+          errorMessage: "Unable to reach Apps Script. Check sheet permissions and try again.",
         });
       }
     } catch (err: any) {
       console.warn("Cloud sync error:", err);
+      setSyncState("paused");
       setNotification({
         type: "error",
-        errorMessage:
-          "Sync request failed. Staged locally. Please check your network or Google Sheets setup.",
+        errorMessage: "Unable to reach Apps Script. Check sheet permissions and try again.",
       });
     } finally {
       setIsSyncing(false);
@@ -238,68 +312,78 @@ export default function Home() {
 
     setTimeout(() => {
       setNotification(null);
-    }, 8000);
-  };
-
-  // Screen 03 -> Download Excel database
-  const handleDownloadExcelBackup = () => {
-    downloadExcelDatabase(records.length > 0 ? records : database);
+    }, 7000);
   };
 
   // Clear Database
   const handleClearDatabase = () => {
     setDatabase([]);
+    setRecords([]);
     try {
       localStorage.removeItem(DB_STORAGE_KEY);
     } catch (e) {
       console.warn(e);
     }
+    showToast("info", "Local database cleared.");
   };
 
   return (
-    <>
-      {/* Screen 01: Ideation & Studio Intake */}
-      {currentScreen === "ideate" && (
-        <Screen01Ideate
-          onAddDraftItem={handleAddDraftItem}
-          onLoadTrendSparks={handleLoadTrendSparks}
-          onOpenContentDb={() => setIsContentDbOpen(true)}
-          onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
-          onOpenChannelModal={() => setIsChannelModalOpen(true)}
-          onOpenSheetsModal={() => setIsSheetsModalOpen(true)}
-          hasApiKey={Boolean(apiKey)}
-          channelTemplate={channelTemplate}
-        />
-      )}
+    <div className="min-h-screen bg-pageBg flex flex-col font-sans">
+      {/* Universal Logline Studio Navbar */}
+      <Navbar
+        currentScreen={currentScreen}
+        onNavigate={setCurrentScreen}
+        syncState={syncState}
+        onNewContentPiece={() => setCurrentScreen("ideate")}
+        onOpenSheetsModal={() => setIsSheetsModalOpen(true)}
+        onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
+        onOpenChannelModal={() => setIsChannelModalOpen(true)}
+        hasApiKey={Boolean(apiKey)}
+        channelTemplate={channelTemplate}
+      />
 
-      {/* Screen 02: Curation Canvas & Staging */}
-      {currentScreen === "canvas" && (
-        <Screen02Canvas
-          items={draftItems}
-          onAddItem={handleAddMoreItems}
-          onRemoveItem={handleRemoveItem}
-          onCurateData={handleCurateData}
-          isCurating={isCurating}
-          onBackToIdeate={() => setCurrentScreen("ideate")}
-          channelTemplate={channelTemplate}
-        />
-      )}
+      {/* Main Screen Content */}
+      <main className="flex-1 flex flex-col">
+        {currentScreen === "ideate" && (
+          <Screen01Ideate
+            onSendToCanvas={handleSendToCanvas}
+            onSaveAsIdea={handleSaveAsIdea}
+            onLoadTrendSparks={handleLoadTrendSparks}
+            onOpenContentDb={() => setIsContentDbOpen(true)}
+            channelTemplate={channelTemplate}
+          />
+        )}
 
-      {/* Screen 03: Execution Table & Google Sheets Sync */}
-      {currentScreen === "execution" && (
-        <Screen03ExecutionTable
-          records={records}
-          onUpdateRecord={handleUpdateRecord}
-          onBack={() => setCurrentScreen("canvas")}
-          onOpenContentDb={() => setIsContentDbOpen(true)}
-          onSyncGoogleSheets={handleSyncGoogleSheets}
-          onDownloadExcelBackup={handleDownloadExcelBackup}
-          onOpenSheetsModal={() => setIsSheetsModalOpen(true)}
-          hasSheetsWebhook={Boolean(sheetsWebhookUrl)}
-          notification={notification}
-          isSyncing={isSyncing}
-        />
-      )}
+        {currentScreen === "canvas" && (
+          <Screen02Canvas
+            items={draftItems}
+            onAddItem={handleAddMoreItems}
+            onRemoveItem={handleRemoveItem}
+            onPushToPipeline={handlePushToPipeline}
+            onCurateWithAi={handleCurateWithAi}
+            isCurating={isCurating}
+            onBackToDraft={() => setCurrentScreen("ideate")}
+            channelTemplate={channelTemplate}
+          />
+        )}
+
+        {currentScreen === "execution" && (
+          <Screen03ExecutionTable
+            records={records}
+            onUpdateRecord={handleUpdateRecord}
+            onDeleteRecord={handleDeleteRecord}
+            onBack={() => setCurrentScreen("canvas")}
+            onOpenContentDb={() => setIsContentDbOpen(true)}
+            onSyncGoogleSheets={handleSyncGoogleSheets}
+            onDownloadExcelBackup={() => downloadExcelDatabase(records)}
+            onOpenSheetsModal={() => setIsSheetsModalOpen(true)}
+            hasSheetsWebhook={Boolean(sheetsWebhookUrl)}
+            notification={notification}
+            isSyncing={isSyncing}
+            onDraftFirstVideo={() => setCurrentScreen("ideate")}
+          />
+        )}
+      </main>
 
       {/* Modals */}
       <ContentDbModal
@@ -329,6 +413,6 @@ export default function Home() {
         webhookUrl={sheetsWebhookUrl}
         onSaveWebhookUrl={handleSaveWebhookUrl}
       />
-    </>
+    </div>
   );
 }

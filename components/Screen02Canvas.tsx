@@ -1,371 +1,380 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Sparkles,
+  ArrowRight,
   ArrowLeft,
-  Trash2,
-  Plus,
   Video,
   Zap,
   Radio,
   FileText,
   Loader2,
-  Calendar,
+  Trash2,
+  Check,
+  Send,
+  Clapperboard,
+  Sliders,
   Layers,
-  ChevronRight,
-  X,
+  Plus,
 } from "lucide-react";
-import { DraftContentItem, ContentFormat, ChannelTemplate } from "@/lib/types";
+import { DraftContentItem, ContentRecord, ContentStatus, ChannelTemplate } from "@/lib/types";
 
 interface Screen02CanvasProps {
   items: DraftContentItem[];
   onAddItem: (item: DraftContentItem) => void;
   onRemoveItem: (id: string) => void;
-  onCurateData: () => void;
+  onPushToPipeline: (records: ContentRecord[]) => void;
+  onCurateWithAi: () => void;
   isCurating: boolean;
-  onBackToIdeate: () => void;
+  onBackToDraft: () => void;
   channelTemplate: ChannelTemplate;
 }
+
+const STAGE_OPTIONS: ContentStatus[] = [
+  "Idea / Draft",
+  "Scripting",
+  "Ready to Record",
+  "In Editing",
+  "Scheduled",
+  "Published",
+  "On Hold",
+];
 
 export default function Screen02Canvas({
   items,
   onAddItem,
   onRemoveItem,
-  onCurateData,
+  onPushToPipeline,
+  onCurateWithAi,
   isCurating,
-  onBackToIdeate,
+  onBackToDraft,
   channelTemplate,
 }: Screen02CanvasProps) {
-  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
-  const [quickTitle, setQuickTitle] = useState("");
-  const [quickFormat, setQuickFormat] = useState<ContentFormat>("Long-form Video");
-  const [quickPillar, setQuickPillar] = useState(channelTemplate.contentPillars[0] || "Tutorial & How-To");
-  const [quickNotes, setQuickNotes] = useState("");
+  const [selectedIndex, setSelectedIndex] = useState(0);
 
-  const handleQuickAddSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!quickTitle.trim()) return;
+  // Local editable canvas state for active item
+  const [activeTitle, setActiveTitle] = useState("");
+  const [activeBeats, setActiveBeats] = useState("");
+  const [activeThumbnail, setActiveThumbnail] = useState("");
+  const [activeDescription, setActiveDescription] = useState("");
+  const [activeTags, setActiveTags] = useState("");
+  const [activeChannel, setActiveChannel] = useState(channelTemplate.name);
+  const [activeStage, setActiveStage] = useState<ContentStatus>("Scripting");
 
-    onAddItem({
-      id: `draft-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      title: quickTitle.trim(),
-      format: quickFormat,
-      pillar: quickPillar,
-      rawNotes: quickNotes.trim(),
-      targetChannel: channelTemplate.name,
-    });
-
-    setQuickTitle("");
-    setQuickNotes("");
-    setIsQuickAddOpen(false);
-  };
-
-  const getFormatIcon = (format: string) => {
-    switch (format) {
-      case "YouTube Short":
-        return <Zap className="w-4 h-4 text-amber-500" />;
-      case "Live Stream":
-        return <Radio className="w-4 h-4 text-red-500" />;
-      case "Community Post":
-        return <FileText className="w-4 h-4 text-emerald-500" />;
-      default:
-        return <Video className="w-4 h-4 text-blue-500" />;
+  // Keep in sync when switching between queued items
+  useEffect(() => {
+    if (items.length > 0 && items[selectedIndex]) {
+      const current = items[selectedIndex];
+      setActiveTitle(current.title);
+      setActiveChannel(current.targetChannel || channelTemplate.name);
+      // If rawNotes has structured parts, preload
+      if (!activeBeats) {
+        setActiveBeats(
+          `0:00 Hook & Cold Open\n0:45 The Core Tension\n2:30 Step-by-Step Breakdown\n${current.rawNotes || ""}`
+        );
+      }
+      if (!activeThumbnail) {
+        setActiveThumbnail(
+          `High-contrast visual of ${current.title.slice(0, 30)}. Creator with focused expression. Text badge: "${current.title.split(" ").slice(0, 3).join(" ").toUpperCase()}".`
+        );
+      }
+      if (!activeTags) {
+        setActiveTags(`${current.pillar.toLowerCase()}, ${current.format.toLowerCase().replace(" ", "-")}, youtube, coding`);
+      }
+      if (!activeDescription) {
+        setActiveDescription(
+          `${current.title}\n\n📌 Summary:\n${current.rawNotes || "Actionable video walkthrough."}\n\n---\n${channelTemplate.defaultOutro}\n\n🔗 ${channelTemplate.socialLinks}`
+        );
+      }
     }
+  }, [selectedIndex, items]);
+
+  const activeItem = items[selectedIndex] || items[0];
+
+  const handlePushCurrentToPipeline = () => {
+    if (!activeItem) return;
+    const now = new Date();
+    const scheduleDate = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+    const scheduleTime = `${String(scheduleDate.getDate()).padStart(2, "0")}/${String(
+      scheduleDate.getMonth() + 1
+    ).padStart(2, "0")}/${scheduleDate.getFullYear()}, 06:00 PM`;
+
+    const record: ContentRecord = {
+      sNo: 1,
+      title: activeTitle || activeItem.title,
+      format: activeItem.format,
+      pillar: activeItem.pillar,
+      hook: activeBeats.split("\n")[0] || "Hook line",
+      scriptOutline: activeBeats,
+      thumbnailBrief: activeThumbnail,
+      description: activeDescription,
+      seoTags: activeTags,
+      targetChannel: activeChannel,
+      scheduleTime,
+      status: activeStage,
+      notes: activeItem.rawNotes || "Prepared in Production Canvas",
+      addedTimestamp: new Date().toISOString(),
+    };
+
+    onPushToPipeline([record]);
   };
+
+  if (items.length === 0) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+        <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-400 mb-4">
+          <Clapperboard className="w-7 h-7" />
+        </div>
+        <h2 className="text-xl font-bold text-gray-900 mb-1">Canvas is empty</h2>
+        <p className="text-xs text-gray-500 mb-4 max-w-sm">
+          Draft a video concept in Screen 01 or load trend sparks to start expanding narrative beats and packaging.
+        </p>
+        <button
+          onClick={onBackToDraft}
+          className="px-5 py-2.5 bg-appBlue hover:bg-appBlue-dark text-white rounded-xl text-xs font-bold shadow transition-all"
+        >
+          Go to Draft Studio ➔
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-pageBg flex flex-col font-sans">
-      {/* Top Header */}
-      <header className="w-full bg-white border-b border-gray-200 px-6 py-3.5 flex items-center justify-between shadow-sm sticky top-0 z-30">
-        <div className="flex items-center space-x-4">
+    <div className="flex-1 flex flex-col max-w-7xl w-full mx-auto p-4 md:p-6 font-sans">
+      {/* Header & Subheading */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 pb-4 border-b border-gray-200/80">
+        <div>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-800 text-[11px] font-semibold mb-1">
+            <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+            <span>Screen 02 • Script & Production Canvas</span>
+          </div>
+          <h1 className="text-2xl md:text-3xl font-extrabold text-gray-950 tracking-tight font-poppins">
+            Production Canvas
+          </h1>
+          <p className="text-xs md:text-sm text-gray-600">
+            Structure your narrative beats, visual assets, and packaging.
+          </p>
+        </div>
+
+        {/* AI Action CTA */}
+        <div className="flex items-center gap-3">
           <button
-            onClick={onBackToIdeate}
-            className="flex items-center gap-1 text-xs font-semibold text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg transition-colors"
+            onClick={onCurateWithAi}
+            disabled={isCurating}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition-all disabled:opacity-50"
           >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            Back to Studio
+            {isCurating ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
+                <span>Generating Blueprint...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4 text-amber-300" />
+                <span>Auto-Flesh with Gemini AI ➔</span>
+              </>
+            )}
           </button>
-          <div>
-            <h1 className="text-base font-bold text-gray-900 flex items-center gap-2">
-              Staging & Curation Canvas
-              <span className="text-xs bg-blue-100 text-blue-800 font-semibold px-2 py-0.5 rounded-full">
-                {items.length} {items.length === 1 ? "concept" : "concepts"} queued
-              </span>
-            </h1>
-          </div>
         </div>
+      </div>
 
-        <div className="flex items-center space-x-3">
-          <span className="text-xs text-gray-500 font-medium">Channel: {channelTemplate.name}</span>
-        </div>
-      </header>
-
-      {/* Main Staging Layout */}
-      <div className="flex-1 flex flex-col lg:flex-row max-w-7xl w-full mx-auto p-4 md:p-6 gap-6">
-        {/* Left Side: Staging Cards Grid */}
-        <div className="flex-1 flex flex-col">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-gray-600">
-              Queued Content Concepts
-            </h2>
-            <button
-              onClick={() => setIsQuickAddOpen(true)}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-200 transition-colors"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Quick Add Another
-            </button>
+      {/* Main Two-Column Layout */}
+      <div className="flex-1 flex flex-col lg:flex-row gap-6">
+        {/* Left Queued Concepts List */}
+        <div className="w-full lg:w-72 flex flex-col space-y-2">
+          <div className="flex items-center justify-between px-1 mb-1">
+            <span className="text-xs font-bold uppercase tracking-wider text-gray-500">
+              Queued Pieces ({items.length})
+            </span>
           </div>
 
-          {items.length === 0 ? (
-            <div className="flex-1 min-h-[300px] flex flex-col items-center justify-center bg-white rounded-2xl border-2 border-dashed border-gray-300 p-8 text-center">
-              <Layers className="w-12 h-12 text-gray-300 mb-3" />
-              <p className="text-base font-semibold text-gray-700 mb-1">No concepts in staging</p>
-              <p className="text-xs text-gray-500 mb-4">Add your first video idea or load trend sparks.</p>
-              <button
-                onClick={onBackToIdeate}
-                className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700"
-              >
-                Go to Ideate Studio
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 auto-rows-max">
-              {items.map((item, idx) => (
-                <div
-                  key={item.id}
-                  className="bg-white rounded-xl border border-gray-200/90 hover:border-blue-300 shadow-sm hover:shadow-md transition-all p-5 flex flex-col justify-between group relative"
-                >
-                  <div>
-                    {/* Format and Pillar Badges */}
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-gray-100 text-gray-700 text-xs font-semibold border border-gray-200">
-                          {getFormatIcon(item.format)}
-                          {item.format}
-                        </span>
-                        <span className="px-2 py-1 rounded-md bg-blue-50 text-blue-700 text-xs font-medium border border-blue-100">
-                          {item.pillar}
-                        </span>
-                      </div>
-                      <span className="text-xs font-mono text-gray-400 font-bold">#{idx + 1}</span>
-                    </div>
-
-                    {/* Title */}
-                    <h3 className="text-base font-bold text-gray-900 mb-2 leading-snug group-hover:text-blue-600 transition-colors">
-                      {item.title}
-                    </h3>
-
-                    {/* Notes preview */}
-                    {item.rawNotes && (
-                      <p className="text-xs text-gray-600 line-clamp-3 bg-gray-50 p-2.5 rounded-lg border border-gray-100 mb-3 font-normal">
-                        {item.rawNotes}
-                      </p>
-                    )}
-
-                    {item.audienceAngle && (
-                      <p className="text-xs text-gray-500 italic mb-2">
-                        Target: {item.audienceAngle}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Card Footer with Delete */}
-                  <div className="pt-3 border-t border-gray-100 flex items-center justify-between mt-2">
-                    <span className="text-[11px] text-gray-400">
-                      Channel: {item.targetChannel}
-                    </span>
-                    <button
-                      onClick={() => onRemoveItem(item.id)}
-                      className="text-gray-400 hover:text-red-600 p-1 rounded hover:bg-red-50 transition-colors"
-                      title="Remove concept"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Right Docked Management Sidebar (Matches previous project Screen02) */}
-        <div className="w-full lg:w-80 flex flex-col">
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-lg p-5 flex flex-col h-full sticky top-20">
-            {/* Header with Sky-Blue floating + button and live counter */}
-            <div className="flex items-center justify-between pb-4 border-b border-gray-100 mb-4">
-              <div>
-                <h3 className="text-sm font-bold text-gray-900">Execution Queue</h3>
-                <p className="text-xs text-gray-500">Ready for AI enrichment</p>
-              </div>
-
-              {/* Sky-Blue pill counter badge */}
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-appSky/10 border border-appSky text-appSky-dark rounded-full text-xs font-bold shadow-sm">
-                <span>{items.length}</span>
-                <Plus className="w-3.5 h-3.5" />
-              </div>
-            </div>
-
-            {/* List of items in solid deep blue cards (Matches previous project #0057B7) */}
-            <div className="flex-1 overflow-y-auto space-y-2.5 max-h-[420px] pr-1 mb-5">
-              {items.map((item, idx) => (
-                <div
-                  key={item.id}
-                  className="bg-appBlue-card text-white rounded-xl p-3 flex items-start justify-between shadow-sm relative group"
-                >
-                  <div className="flex-1 pr-2">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <span className="text-[10px] bg-white/20 text-white font-semibold px-1.5 py-0.5 rounded">
-                        #{idx + 1}
-                      </span>
-                      <span className="text-[10px] text-blue-100 uppercase tracking-wider font-semibold">
-                        {item.format}
-                      </span>
-                    </div>
-                    <p className="text-xs font-bold text-white line-clamp-2 leading-tight">
-                      {item.title}
-                    </p>
-                  </div>
-
-                  <button
-                    onClick={() => onRemoveItem(item.id)}
-                    className="text-white/70 hover:text-white hover:bg-white/20 w-6 h-6 rounded-md flex items-center justify-center transition-colors"
-                    title="Remove item"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            {/* Sticky Bottom CTA: Curate & Polish with AI */}
-            <div className="pt-2">
-              <button
-                onClick={onCurateData}
-                disabled={items.length === 0 || isCurating}
-                className={`w-full py-3.5 px-4 rounded-xl text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 ${
-                  items.length === 0 || isCurating
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-appBlue hover:bg-appBlue-dark hover:shadow-lg active:scale-[0.99]"
+          <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+            {items.map((item, idx) => (
+              <div
+                key={item.id}
+                onClick={() => setSelectedIndex(idx)}
+                className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-start justify-between relative group ${
+                  selectedIndex === idx
+                    ? "bg-white border-blue-600 shadow-md ring-1 ring-blue-600"
+                    : "bg-white/80 hover:bg-white border-gray-200"
                 }`}
               >
-                {isCurating ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin text-white" />
-                    <span>Curating with Gemini AI...</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4 text-amber-300" />
-                    <span>Curate Data with AI ➔</span>
-                  </>
-                )}
+                <div className="flex-1 pr-2">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-1.5 py-0.5 rounded">
+                      #{idx + 1}
+                    </span>
+                    <span className="text-[10px] text-gray-500 font-semibold uppercase">
+                      {item.format}
+                    </span>
+                  </div>
+                  <h4 className="text-xs font-bold text-gray-900 line-clamp-2 leading-tight">
+                    {item.title}
+                  </h4>
+                </div>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemoveItem(item.id);
+                  }}
+                  className="text-gray-300 hover:text-rose-600 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="Delete item"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Right Canvas Sections */}
+        <div className="flex-1 flex flex-col space-y-6">
+          {/* Active Title Banner */}
+          <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="px-2.5 py-1 rounded-md bg-gray-100 text-gray-700 text-xs font-bold uppercase">
+                {activeItem.format}
+              </span>
+              <span className="px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 text-xs font-semibold">
+                {activeItem.pillar}
+              </span>
+            </div>
+            <input
+              type="text"
+              value={activeTitle}
+              onChange={(e) => setActiveTitle(e.target.value)}
+              className="w-full text-lg md:text-xl font-extrabold text-gray-950 border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-600 focus:bg-gray-50/50 px-2 py-1 rounded outline-none transition-all"
+            />
+          </div>
+
+          {/* Section A: Narrative & Beats */}
+          <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-gray-800 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                Script & Storyboard Beats
+              </h3>
+              <span className="text-[11px] text-gray-400 font-medium">Timeline Outline</span>
+            </div>
+            <textarea
+              value={activeBeats}
+              onChange={(e) => setActiveBeats(e.target.value)}
+              rows={5}
+              placeholder="Map out your timeline: 0:00 Hook, 0:45 Conflict, 2:30 Resolution..."
+              className="w-full px-4 py-3 rounded-xl border border-gray-300 text-xs font-mono focus:ring-2 focus:ring-blue-600 outline-none leading-relaxed text-gray-800"
+            />
+          </div>
+
+          {/* Section B: Packaging & Visuals */}
+          <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-800 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+              Section B: Packaging & Visuals
+            </h3>
+
+            {/* Thumbnail Visual Brief */}
+            <div>
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                Thumbnail Visual Brief
+              </label>
+              <textarea
+                value={activeThumbnail}
+                onChange={(e) => setActiveThumbnail(e.target.value)}
+                rows={2}
+                placeholder="Subject focus, contrast colors, text badge (max 3 words), facial emotion..."
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-300 text-xs focus:ring-2 focus:ring-blue-600 outline-none text-gray-800 resize-none"
+              />
+            </div>
+
+            {/* Video Description & Chapters */}
+            <div>
+              <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                Video Description & Chapters
+              </label>
+              <textarea
+                value={activeDescription}
+                onChange={(e) => setActiveDescription(e.target.value)}
+                rows={4}
+                placeholder="Summary, resources mentioned, gear links, and chapter breakdown."
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-300 text-xs focus:ring-2 focus:ring-blue-600 outline-none text-gray-800 font-sans"
+              />
+            </div>
+          </div>
+
+          {/* Section C: Metadata & Distribution */}
+          <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-800 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
+              Section C: Metadata & Distribution
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Search Tags */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                  Search Tags & Keywords
+                </label>
+                <input
+                  type="text"
+                  value={activeTags}
+                  onChange={(e) => setActiveTags(e.target.value)}
+                  placeholder="ui design, portfolio review, product design workflow..."
+                  className="w-full px-3.5 py-2 rounded-xl border border-gray-300 text-xs focus:ring-2 focus:ring-blue-600 outline-none text-gray-800"
+                />
+              </div>
+
+              {/* Publishing Channel */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                  Publishing Channel
+                </label>
+                <input
+                  type="text"
+                  value={activeChannel}
+                  onChange={(e) => setActiveChannel(e.target.value)}
+                  placeholder="Channel name..."
+                  className="w-full px-3.5 py-2 rounded-xl border border-gray-300 text-xs focus:ring-2 focus:ring-blue-600 outline-none text-gray-800 font-semibold"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Status Action Bar */}
+          <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+            {/* Status Selector */}
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-600 whitespace-nowrap">
+                Current Stage:
+              </span>
+              <select
+                value={activeStage}
+                onChange={(e) => setActiveStage(e.target.value as ContentStatus)}
+                className="px-3.5 py-2 rounded-xl border border-gray-300 text-xs font-bold bg-white text-gray-900 focus:ring-2 focus:ring-blue-600 outline-none cursor-pointer"
+              >
+                {STAGE_OPTIONS.map((st) => (
+                  <option key={st} value={st}>
+                    {st}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Primary Action: Push to Pipeline Table */}
+            <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+              <button
+                type="button"
+                onClick={handlePushCurrentToPipeline}
+                className="inline-flex items-center gap-2 px-6 py-2.5 bg-appBlue hover:bg-appBlue-dark text-white font-bold text-xs rounded-xl shadow-md hover:shadow-lg transition-all"
+              >
+                <span>Push to Pipeline Table</span>
+                <ArrowRight className="w-4 h-4" />
               </button>
-              <p className="text-[11px] text-center text-gray-500 mt-2 font-medium">
-                Generates high-CTR hooks, SEO tags, outlines & descriptions
-              </p>
             </div>
           </div>
         </div>
       </div>
-
-      {/* Quick Add Modal */}
-      {isQuickAddOpen && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-gray-200 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100 mb-4">
-              <h3 className="text-base font-bold text-gray-900">Add Another Video Concept</h3>
-              <button
-                onClick={() => setIsQuickAddOpen(false)}
-                className="text-gray-400 hover:text-gray-600 p-1"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleQuickAddSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                  Topic / Title
-                </label>
-                <input
-                  type="text"
-                  value={quickTitle}
-                  onChange={(e) => setQuickTitle(e.target.value)}
-                  placeholder="e.g. 10 Productivity Hacks in VS Code"
-                  className="w-full px-3.5 py-2.5 rounded-lg border border-gray-300 text-sm focus:ring-2 focus:ring-blue-600 outline-none"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                    Format
-                  </label>
-                  <select
-                    value={quickFormat}
-                    onChange={(e) => setQuickFormat(e.target.value as ContentFormat)}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-xs bg-white focus:ring-2 focus:ring-blue-600 outline-none"
-                  >
-                    <option value="Long-form Video">Long-form Video</option>
-                    <option value="YouTube Short">YouTube Short</option>
-                    <option value="Community Post">Community Post</option>
-                    <option value="Live Stream">Live Stream</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                    Pillar
-                  </label>
-                  <select
-                    value={quickPillar}
-                    onChange={(e) => setQuickPillar(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-xs bg-white focus:ring-2 focus:ring-blue-600 outline-none"
-                  >
-                    {channelTemplate.contentPillars.map((p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-                  Brief Notes / Points
-                </label>
-                <textarea
-                  value={quickNotes}
-                  onChange={(e) => setQuickNotes(e.target.value)}
-                  rows={3}
-                  placeholder="Talking points, key takeaways, tools..."
-                  className="w-full px-3.5 py-2 rounded-lg border border-gray-300 text-xs focus:ring-2 focus:ring-blue-600 outline-none resize-none"
-                />
-              </div>
-
-              <div className="pt-2 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsQuickAddOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-lg"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm"
-                >
-                  Add to Staging
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
