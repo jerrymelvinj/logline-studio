@@ -5,6 +5,9 @@ export const DEFAULT_GOOGLE_SHEET_URL =
 
 export const DEFAULT_GOOGLE_SHEET_ID = "1BauHyRepxXE5m5CFGwmh6EQJfsjog4lCSLqalI6AhvQ";
 
+export const DEFAULT_SHEETS_WEBHOOK_URL =
+  "https://script.google.com/macros/s/AKfycbzFGJuOI48aQZbJLWZf4c59wF3R6QgIc8Nww7ljHnRHFQLv8QD6RZ_XXeUOMMHwnxhA/exec";
+
 export const CONTENT_COLUMNS = [
   "S.No",
   "Content Title",
@@ -46,7 +49,6 @@ export function mergeContentRecordsDeduplicated(
   for (const rec of newRecords) {
     const key = `${(rec.title || "").toLowerCase().trim()}:::${(rec.targetChannel || "").toLowerCase().trim()}`;
     if (existingMap.has(key)) {
-      // Update existing record
       existingMap.set(key, { ...existingMap.get(key)!, ...rec });
       duplicateCount++;
     } else {
@@ -64,9 +66,8 @@ export function mergeContentRecordsDeduplicated(
 }
 
 /**
- * Generates the Google Apps Script code that user can paste in their Google Sheet
- * (Extensions > Apps Script) to enable automatic 1-click live synchronization,
- * dropdown validations, and status row coloring.
+ * Generates the Google Apps Script code for 1-click live synchronization,
+ * dropdown validations, and automatic status row coloring in Google Sheets.
  */
 export function getGoogleAppsScriptCode(): string {
   return `/**
@@ -74,14 +75,95 @@ export function getGoogleAppsScriptCode(): string {
  * Spreadsheet ID: 1BauHyRepxXE5m5CFGwmh6EQJfsjog4lCSLqalI6AhvQ
  *
  * Instructions:
- * 1. In your Google Sheet, click Extensions > Apps Script.
- * 2. Replace all code with this script.
- * 3. Click "Deploy" > "New deployment".
- * 4. Select type: "Web app".
- * 5. Set "Execute as": "Me" and "Who has access": "Anyone".
- * 6. Copy the Web App URL and paste it into your Content Studio app settings.
+ * 1. Replace all code in Code.gs with this script.
+ * 2. Click Save (Cmd+S or Ctrl+S).
+ * 3. (Optional) In the function dropdown, select "setupSheetInitial" and click Run to format your sheet immediately!
+ * 4. Click "Deploy" > "New deployment".
+ * 5. Click the gear icon next to "Select type" and pick "Web app".
+ * 6. Set "Execute as": "Me" and "Who has access": "Anyone".
+ * 7. Click Deploy, copy the Web App URL, and paste it into the Content Studio app.
  */
 
+var HEADERS = [
+  "S.No",
+  "Content Title",
+  "Format",
+  "Content Pillar",
+  "Hook / Opening 10s",
+  "Script Outline",
+  "SEO Tags & Keywords",
+  "Description & Timestamps",
+  "Thumbnail Concept Brief",
+  "Target Channel",
+  "Schedule Date & Time",
+  "Status",
+  "Execution Notes",
+  "Added On"
+];
+
+var STATUS_OPTIONS = [
+  "Idea / Draft",
+  "Scripting",
+  "Ready to Record",
+  "In Editing",
+  "Scheduled",
+  "Published",
+  "On Hold"
+];
+
+var FORMAT_OPTIONS = [
+  "Long-form Video",
+  "YouTube Short",
+  "Community Post",
+  "Live Stream",
+  "Podcast / Interview"
+];
+
+/**
+ * Run this function once from the toolbar to instantly format your Google Sheet
+ */
+function setupSheetInitial() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("Master Content Pipeline");
+  if (!sheet) {
+    sheet = ss.insertSheet("Master Content Pipeline", 0);
+  }
+
+  // Set headers
+  sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
+  var headerRange = sheet.getRange(1, 1, 1, HEADERS.length);
+  headerRange.setFontWeight("bold");
+  headerRange.setBackground("#00529B"); // Deep Royal Blue
+  headerRange.setFontColor("#FFFFFF");
+  headerRange.setFontFamily("Arial");
+  headerRange.setHorizontalAlignment("center");
+  sheet.setFrozenRows(1);
+
+  // Set Data Validation for Format (Column C)
+  var formatRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(FORMAT_OPTIONS, true)
+    .setAllowInvalid(true)
+    .build();
+  sheet.getRange("C2:C500").setDataValidation(formatRule);
+
+  // Set Data Validation for Status (Column L)
+  var statusRule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(STATUS_OPTIONS, true)
+    .setAllowInvalid(true)
+    .build();
+  sheet.getRange("L2:L500").setDataValidation(statusRule);
+
+  // Auto-fit column widths
+  for (var c = 1; c <= HEADERS.length; c++) {
+    sheet.autoResizeColumn(c);
+  }
+
+  Logger.log("Google Sheet initialized successfully with headers, formatting, and dropdowns!");
+}
+
+/**
+ * Receives records posted from the web application
+ */
 function doPost(e) {
   try {
     var data = JSON.parse(e.postData.contents);
@@ -90,44 +172,24 @@ function doPost(e) {
     var sheet = ss.getSheetByName("Master Content Pipeline");
     
     if (!sheet) {
-      sheet = ss.insertSheet("Master Content Pipeline");
+      sheet = ss.insertSheet("Master Content Pipeline", 0);
+      setupSheetInitial();
     }
 
-    var headers = [
-      "S.No",
-      "Content Title",
-      "Format",
-      "Content Pillar",
-      "Hook / Opening 10s",
-      "Script Outline",
-      "SEO Tags & Keywords",
-      "Description & Timestamps",
-      "Thumbnail Concept Brief",
-      "Target Channel",
-      "Schedule Date & Time",
-      "Status",
-      "Execution Notes",
-      "Added On"
-    ];
-
-    // Check if headers exist
     if (sheet.getLastRow() === 0) {
-      sheet.appendRow(headers);
-      var headerRange = sheet.getRange(1, 1, 1, headers.length);
-      headerRange.setFontWeight("bold");
-      headerRange.setBackground("#00529B");
-      headerRange.setFontColor("#FFFFFF");
-      headerRange.setFontFamily("Roboto");
-      sheet.setFrozenRows(1);
+      setupSheetInitial();
     }
 
-    // Get existing titles for deduplication
+    // Map existing titles for intelligent deduplication
     var existingTitles = {};
     var lastRow = sheet.getLastRow();
     if (lastRow > 1) {
       var titleValues = sheet.getRange(2, 2, lastRow - 1, 1).getValues();
       for (var i = 0; i < titleValues.length; i++) {
-        existingTitles[String(titleValues[i][0]).toLowerCase().trim()] = i + 2;
+        var t = String(titleValues[i][0]).toLowerCase().trim();
+        if (t) {
+          existingTitles[t] = i + 2;
+        }
       }
     }
 
@@ -147,7 +209,7 @@ function doPost(e) {
         r.seoTags || "",
         r.description || "",
         r.thumbnailBrief || "",
-        r.targetChannel || "Primary Channel",
+        r.targetChannel || "Tech & Creator Hub",
         r.scheduleTime || "",
         r.status || "Idea / Draft",
         r.notes || "",
@@ -168,8 +230,8 @@ function doPost(e) {
       }
     }
 
-    // Auto-resize columns
-    for (var c = 1; c <= headers.length; c++) {
+    // Auto-resize
+    for (var c = 1; c <= HEADERS.length; c++) {
       sheet.autoResizeColumn(c);
     }
 
@@ -189,13 +251,15 @@ function doPost(e) {
   }
 }
 
+/**
+ * Colors the entire row dynamically based on the Status
+ */
 function applyRowColor(sheet, rowIndex, status) {
-  var range = sheet.getRange(rowIndex, 1, 1, 14);
+  var range = sheet.getRange(rowIndex, 1, 1, HEADERS.length);
   var color = "#FFFFFF";
-  var textColor = "#1F2937";
 
   if (status === "Published") {
-    color = "#DCFCE7"; // Light green
+    color = "#DCFCE7"; // Light emerald green
   } else if (status === "Scheduled") {
     color = "#FEF3C7"; // Light amber/orange
   } else if (status === "In Editing") {
@@ -205,13 +269,12 @@ function applyRowColor(sheet, rowIndex, status) {
   } else if (status === "Scripting") {
     color = "#EFF6FF"; // Soft blue
   } else if (status === "On Hold") {
-    color = "#FEE2E2"; // Light red
+    color = "#FEE2E2"; // Light rose/red
   } else {
-    color = "#F9FAFB"; // Neutral gray
+    color = "#F9FAFB"; // Neutral light gray
   }
 
   range.setBackground(color);
-  range.setFontColor(textColor);
 }
 
 function doGet(e) {
@@ -245,9 +308,14 @@ export async function syncToGoogleSheets(
     };
   }
 
-  if (webhookUrl && webhookUrl.trim().startsWith("http")) {
+  const targetWebhook =
+    webhookUrl?.trim() ||
+    process.env.GOOGLE_SHEETS_WEBHOOK_URL ||
+    DEFAULT_SHEETS_WEBHOOK_URL;
+
+  if (targetWebhook && targetWebhook.startsWith("http")) {
     try {
-      const response = await fetch(webhookUrl.trim(), {
+      const response = await fetch(targetWebhook, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -271,7 +339,6 @@ export async function syncToGoogleSheets(
     }
   }
 
-  // If no webhook URL is configured yet, we record the sync operation successfully locally
   return {
     success: true,
     addedRecords: records.length,

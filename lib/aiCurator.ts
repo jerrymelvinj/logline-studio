@@ -3,13 +3,13 @@ import { ContentRecord, DraftContentItem, ChannelTemplate } from "./types";
 
 export const DEFAULT_CHANNEL_TEMPLATE: ChannelTemplate = {
   id: "primary-channel",
-  name: "Tech & Creator Hub",
+  name: "Jerry Melvin J",
   niche: "Software Engineering, AI Tools, & Tech Career Growth",
   tone: "Engaging, practical, high-value, punchy and clear",
   defaultOutro:
     "🔔 Subscribe for weekly breakdowns on cutting-edge software and AI development!\n💬 Drop your questions below — I reply to every comment.\n🚀 Project links & code in the pinned comment.",
   socialLinks:
-    "GitHub: github.com/jerrymelvinj | LinkedIn: linkedin.com/in/jerrymelvin",
+    "GitHub: github.com/jerrymelvinj | LinkedIn: linkedin.com/in/jerrymelvinjm",
   defaultTags: ["tech", "coding", "software engineer", "developer", "ai tools", "tutorial"],
   contentPillars: [
     "Tutorial & How-To",

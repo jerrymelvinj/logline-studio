@@ -18,6 +18,7 @@ import { DEFAULT_CHANNEL_TEMPLATE, SAMPLE_TREND_SPARKS } from "@/lib/aiCurator";
 import {
   mergeContentRecordsDeduplicated,
   DEFAULT_GOOGLE_SHEET_URL,
+  DEFAULT_SHEETS_WEBHOOK_URL,
 } from "@/lib/googleSheetsSync";
 import { downloadExcelDatabase } from "@/lib/excelExport";
 
@@ -33,7 +34,7 @@ export default function Home() {
   const [database, setDatabase] = useState<ContentRecord[]>([]);
   const [channelTemplate, setChannelTemplate] = useState<ChannelTemplate>(DEFAULT_CHANNEL_TEMPLATE);
   const [apiKey, setApiKey] = useState("");
-  const [sheetsWebhookUrl, setSheetsWebhookUrl] = useState("");
+  const [sheetsWebhookUrl, setSheetsWebhookUrl] = useState(DEFAULT_SHEETS_WEBHOOK_URL);
 
   const [isCurating, setIsCurating] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -60,7 +61,7 @@ export default function Home() {
       if (storedKey) setApiKey(storedKey);
 
       const storedWebhook = localStorage.getItem(WEBHOOK_STORAGE);
-      if (storedWebhook) setSheetsWebhookUrl(storedWebhook);
+      setSheetsWebhookUrl(storedWebhook || DEFAULT_SHEETS_WEBHOOK_URL);
 
       const storedChannel = localStorage.getItem(CHANNEL_STORAGE);
       if (storedChannel) {

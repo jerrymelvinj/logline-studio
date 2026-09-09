@@ -16,6 +16,7 @@ import {
 import {
   DEFAULT_GOOGLE_SHEET_URL,
   DEFAULT_GOOGLE_SHEET_ID,
+  DEFAULT_SHEETS_WEBHOOK_URL,
   getGoogleAppsScriptCode,
 } from "@/lib/googleSheetsSync";
 
@@ -32,7 +33,7 @@ export default function GoogleSheetsModal({
   webhookUrl,
   onSaveWebhookUrl,
 }: GoogleSheetsModalProps) {
-  const [inputUrl, setInputUrl] = useState(webhookUrl);
+  const [inputUrl, setInputUrl] = useState(webhookUrl || DEFAULT_SHEETS_WEBHOOK_URL);
   const [copiedCode, setCopiedCode] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testStatus, setTestStatus] = useState<"success" | "error" | null>(null);

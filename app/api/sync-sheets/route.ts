@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { syncToGoogleSheets, DEFAULT_GOOGLE_SHEET_URL, DEFAULT_GOOGLE_SHEET_ID } from "@/lib/googleSheetsSync";
+import {
+  syncToGoogleSheets,
+  DEFAULT_GOOGLE_SHEET_URL,
+  DEFAULT_GOOGLE_SHEET_ID,
+  DEFAULT_SHEETS_WEBHOOK_URL,
+} from "@/lib/googleSheetsSync";
 import { ContentRecord } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +14,7 @@ export async function GET() {
     status: "ok",
     sheetId: DEFAULT_GOOGLE_SHEET_ID,
     sheetUrl: DEFAULT_GOOGLE_SHEET_URL,
+    webhookUrl: DEFAULT_SHEETS_WEBHOOK_URL,
   });
 }
 
@@ -16,7 +22,8 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const records: ContentRecord[] = body.records || [];
-    const webhookUrl: string = body.webhookUrl || process.env.GOOGLE_SHEETS_WEBHOOK_URL || "";
+    const webhookUrl: string =
+      body.webhookUrl || process.env.GOOGLE_SHEETS_WEBHOOK_URL || DEFAULT_SHEETS_WEBHOOK_URL;
 
     if (!records || records.length === 0) {
       return NextResponse.json({ error: "No content records to sync" }, { status: 400 });
