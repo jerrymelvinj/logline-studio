@@ -6,7 +6,6 @@ import Screen01Ideate from "@/components/Screen01Ideate";
 import Screen02Canvas from "@/components/Screen02Canvas";
 import Screen03ExecutionTable from "@/components/Screen03ExecutionTable";
 import GoogleSheetsModal from "@/components/GoogleSheetsModal";
-import ApiKeyModal from "@/components/ApiKeyModal";
 import ChannelTemplateModal from "@/components/ChannelTemplateModal";
 import ContentDbModal from "@/components/ContentDbModal";
 import {
@@ -48,7 +47,6 @@ export default function Home() {
 
   // Modals
   const [isContentDbOpen, setIsContentDbOpen] = useState(false);
-  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
   const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
   const [isSheetsModalOpen, setIsSheetsModalOpen] = useState(false);
 
@@ -336,9 +334,7 @@ export default function Home() {
         syncState={syncState}
         onNewContentPiece={() => setCurrentScreen("ideate")}
         onOpenSheetsModal={() => setIsSheetsModalOpen(true)}
-        onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
         onOpenChannelModal={() => setIsChannelModalOpen(true)}
-        hasApiKey={Boolean(apiKey)}
         channelTemplate={channelTemplate}
       />
 
@@ -391,13 +387,6 @@ export default function Home() {
         onClose={() => setIsContentDbOpen(false)}
         database={database}
         onClearDb={handleClearDatabase}
-      />
-
-      <ApiKeyModal
-        isOpen={isApiKeyModalOpen}
-        onClose={() => setIsApiKeyModalOpen(false)}
-        apiKey={apiKey}
-        onSaveApiKey={handleSaveApiKey}
       />
 
       <ChannelTemplateModal

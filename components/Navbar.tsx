@@ -22,9 +22,7 @@ interface NavbarProps {
   syncState: "live" | "syncing" | "paused";
   onNewContentPiece: () => void;
   onOpenSheetsModal: () => void;
-  onOpenApiKeyModal: () => void;
   onOpenChannelModal: () => void;
-  hasApiKey: boolean;
   channelTemplate: ChannelTemplate;
 }
 
@@ -34,9 +32,7 @@ export default function Navbar({
   syncState,
   onNewContentPiece,
   onOpenSheetsModal,
-  onOpenApiKeyModal,
   onOpenChannelModal,
-  hasApiKey,
   channelTemplate,
 }: NavbarProps) {
   return (
@@ -135,21 +131,6 @@ export default function Navbar({
         >
           <Sliders className="w-3.5 h-3.5 text-gray-500" />
           <span className="truncate max-w-[120px]">{channelTemplate.name}</span>
-        </button>
-
-        {/* Gemini AI Key */}
-        <button
-          onClick={onOpenApiKeyModal}
-          className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-50 rounded-lg border border-gray-200 transition-colors"
-          title="Configure Gemini AI"
-        >
-          <Key className="w-3.5 h-3.5 text-amber-500" />
-          <span className="text-[11px]">Gemini AI</span>
-          {hasApiKey ? (
-            <span className="w-2 h-2 rounded-full bg-emerald-500 ml-0.5"></span>
-          ) : (
-            <span className="w-2 h-2 rounded-full bg-gray-300 ml-0.5"></span>
-          )}
         </button>
 
         {/* Primary Header CTA */}

@@ -157,7 +157,8 @@ export async function curateContentWithGemini(
 
   try {
     const genAI = new GoogleGenerativeAI(activeKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const modelCandidates = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash", "gemini-flash-latest"];
+    let model = genAI.getGenerativeModel({ model: modelCandidates[0] });
 
     const prompt = `You are an elite YouTube Content Strategist, Producer, and Script Director.
 Your task is to take draft video concepts and transform them into viral, high-CTR, actionable YouTube content blueprints.
