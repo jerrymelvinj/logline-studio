@@ -23,6 +23,7 @@ import {
   Zap,
 } from "lucide-react";
 import { ContentRecord, ContentStatus, ContentFormat, SyncNotification } from "@/lib/types";
+import { useSession, signIn } from "next-auth/react";
 import { DEFAULT_GOOGLE_SHEET_URL } from "@/lib/googleSheetsSync";
 
 interface Screen03ExecutionTableProps {
@@ -72,11 +73,49 @@ export default function Screen03ExecutionTable({
   isSyncing,
   onDraftFirstVideo,
 }: Screen03ExecutionTableProps) {
+  const { data: session } = useSession();
+  const [isPushingYoutube, setIsPushingYoutube] = useState(false);
+  const [youtubeStatus, setYoutubeStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [formatFilter, setFormatFilter] = useState<string>("all");
   const [selectedRowDetail, setSelectedRowDetail] = useState<ContentRecord | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handlePushToYouTube = async (record: ContentRecord) => {
+    if (!(session as any)?.accessToken) {
+      signIn("google");
+      return;
+    }
+    
+    setIsPushingYoutube(true);
+    setYoutubeStatus(null);
+    try {
+      const res = await fetch("/api/youtube/push-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: record.title,
+          description: record.description,
+          tags: record.seoTags,
+          scheduledTime: record.scheduleTime, // Will be ignored if invalid format or empty
+          accessToken: (session as any).accessToken,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setYoutubeStatus({ type: "success", message: `Draft created! Video ID: ${data.videoId}` });
+        // Optionally update the status of the record to 'Scheduled' or keep it as is
+      } else {
+        setYoutubeStatus({ type: "error", message: data.error || "Failed to push to YouTube" });
+      }
+    } catch (err: any) {
+      setYoutubeStatus({ type: "error", message: err.message || "Network error" });
+    } finally {
+      setIsPushingYoutube(false);
+    }
+  };
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -621,13 +660,40 @@ export default function Screen03ExecutionTable({
               </div>
             </div>
 
-            <div className="mt-5 pt-3 border-t border-gray-200 flex justify-end">
-              <button
-                onClick={() => setSelectedRowDetail(null)}
-                className="px-4 py-2 text-xs font-semibold bg-gray-900 text-white rounded-xl hover:bg-gray-800"
-              >
-                Done
-              </button>
+            <div className="mt-5 pt-3 border-t border-gray-200 flex flex-col gap-3">
+              {youtubeStatus && (
+                <div className={`p-2.5 rounded-lg text-xs font-semibold ${youtubeStatus.type === "success" ? "bg-emerald-50 text-emerald-800 border border-emerald-200" : "bg-rose-50 text-rose-800 border border-rose-200"}`}>
+                  {youtubeStatus.message}
+                </div>
+              )}
+              <div className="flex justify-between items-center w-full">
+                <button
+                  onClick={() => handlePushToYouTube(selectedRowDetail)}
+                  disabled={isPushingYoutube}
+                  className="px-4 py-2 text-xs font-bold bg-red-600 text-white rounded-xl hover:bg-red-700 flex items-center gap-2 transition-colors disabled:opacity-50"
+                >
+                  {isPushingYoutube ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Pushing to Studio...
+                    </>
+                  ) : (
+                    <>
+                      <Clapperboard className="w-3.5 h-3.5" />
+                      {(session as any)?.accessToken ? "Push to YouTube Studio" : "Sign in & Push to YouTube"}
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedRowDetail(null);
+                    setYoutubeStatus(null);
+                  }}
+                  className="px-4 py-2 text-xs font-semibold bg-gray-900 text-white rounded-xl hover:bg-gray-800"
+                >
+                  Done
+                </button>
+              </div>
             </div>
           </div>
         </div>
