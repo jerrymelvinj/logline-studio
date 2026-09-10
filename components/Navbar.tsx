@@ -12,6 +12,7 @@ import {
   Key,
   FileSpreadsheet,
   ExternalLink,
+  Lightbulb,
 } from "lucide-react";
 import { ChannelTemplate } from "@/lib/types";
 import { DEFAULT_GOOGLE_SHEET_URL } from "@/lib/googleSheetsSync";
@@ -23,6 +24,7 @@ interface NavbarProps {
   onNewContentPiece: () => void;
   onOpenSheetsModal: () => void;
   onOpenChannelModal: () => void;
+  onOpenInspirationVault: () => void;
   channelTemplate: ChannelTemplate;
 }
 
@@ -33,6 +35,7 @@ export default function Navbar({
   onNewContentPiece,
   onOpenSheetsModal,
   onOpenChannelModal,
+  onOpenInspirationVault,
   channelTemplate,
 }: NavbarProps) {
   return (
@@ -122,6 +125,16 @@ export default function Navbar({
             </span>
           )}
         </div>
+
+        {/* Story Inspiration Vault */}
+        <button
+          onClick={onOpenInspirationVault}
+          className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-amber-900 bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-200 transition-colors"
+          title="Creator Inspiration Vault (Storytelling Neuroscience & Frameworks)"
+        >
+          <Lightbulb className="w-3.5 h-3.5 text-amber-600" />
+          <span className="hidden md:inline">Inspiration Vault</span>
+        </button>
 
         {/* Channel Settings */}
         <button

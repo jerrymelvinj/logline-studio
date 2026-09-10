@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Sparkles,
   TrendingUp,
@@ -12,6 +12,9 @@ import {
   RotateCcw,
   Bookmark,
   Send,
+  Lightbulb,
+  BookOpen,
+  Plus,
 } from "lucide-react";
 import { DraftContentItem, ContentFormat, ChannelTemplate } from "@/lib/types";
 import { DEFAULT_GOOGLE_SHEET_URL } from "@/lib/googleSheetsSync";
@@ -22,6 +25,8 @@ interface Screen01IdeateProps {
   onLoadTrendSparks: () => void;
   onOpenContentDb: () => void;
   channelTemplate: ChannelTemplate;
+  onOpenInspirationVault?: () => void;
+  injectedSkeleton?: string;
 }
 
 const FORMAT_OPTIONS: ContentFormat[] = [
@@ -47,6 +52,8 @@ export default function Screen01Ideate({
   onLoadTrendSparks,
   onOpenContentDb,
   channelTemplate,
+  onOpenInspirationVault,
+  injectedSkeleton,
 }: Screen01IdeateProps) {
   const [title, setTitle] = useState("");
   const [hook, setHook] = useState("");
@@ -54,6 +61,12 @@ export default function Screen01Ideate({
   const [pillar, setPillar] = useState<string>("Tutorial");
   const [rawNotes, setRawNotes] = useState("");
   const [audienceAngle, setAudienceAngle] = useState("");
+
+  useEffect(() => {
+    if (injectedSkeleton) {
+      setRawNotes((prev) => (prev ? `${prev}\n\n${injectedSkeleton}` : injectedSkeleton));
+    }
+  }, [injectedSkeleton]);
 
   const buildDraftItem = (): DraftContentItem => {
     return {
@@ -192,6 +205,52 @@ export default function Screen01Ideate({
             </div>
           </div>
 
+          {/* Storyteller's Shortcut: The 5-Question Narrative Data Pattern */}
+          <div className="rounded-xl bg-gradient-to-r from-amber-50/90 via-orange-50/80 to-amber-50/50 border border-amber-200/90 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                <Sparkles className="w-4 h-4 text-amber-100" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-xs font-bold text-amber-950 font-poppins">
+                    Storyteller's Shortcut: The 5-Question Pattern
+                  </h4>
+                  <span className="text-[10px] bg-amber-200/80 text-amber-900 font-semibold px-1.5 py-0.2 rounded border border-amber-300">
+                    Ingested Model
+                  </span>
+                </div>
+                <p className="text-[11px] text-amber-900/85 mt-0.5 leading-relaxed">
+                  Erase creative inertia: <em>Where am I? What am I doing? What am I thinking? What am I feeling? What was said?</em>
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  const skeleton = `[Story Beat 1 - Lived Scene & Hook]:\n- Where am I: \n- What am I doing: \n- What am I thinking & feeling: \n- What was said:\n\n[Story Beat 2 - The Failed Attempt / Conflict]:\n- The struggle or misconception: \n\n[Story Beat 3 - Unexpected Discovery & Viewer Takeaway]:\n- The breakthrough: \n- Actionable viewer takeaway: `;
+                  setRawNotes((prev) => (prev ? `${prev}\n\n${skeleton}` : skeleton));
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold shadow-xs transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Insert Story Skeleton</span>
+              </button>
+              {onOpenInspirationVault && (
+                <button
+                  type="button"
+                  onClick={onOpenInspirationVault}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-white border border-amber-300 hover:bg-amber-100/50 text-amber-900 rounded-lg text-xs font-bold transition-colors"
+                  title="View all 7 storytelling principles"
+                >
+                  <BookOpen className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Vault</span>
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Supporting Notes & Target Audience */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
@@ -201,9 +260,9 @@ export default function Screen01Ideate({
               <textarea
                 value={rawNotes}
                 onChange={(e) => setRawNotes(e.target.value)}
-                rows={3}
-                placeholder="Key concepts, tools mentioned, real-world demos..."
-                className="w-full px-4 py-2 text-xs rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-600 outline-none placeholder:text-gray-400 text-gray-800 resize-none font-normal"
+                rows={4}
+                placeholder="Key concepts, tools mentioned, real-world demos or story skeleton..."
+                className="w-full px-4 py-2 text-xs rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-600 outline-none placeholder:text-gray-400 text-gray-800 resize-none font-normal font-mono"
               />
             </div>
 
@@ -214,8 +273,8 @@ export default function Screen01Ideate({
               <textarea
                 value={audienceAngle}
                 onChange={(e) => setAudienceAngle(e.target.value)}
-                rows={3}
-                placeholder="e.g. Full-stack developers, design students..."
+                rows={4}
+                placeholder="e.g. Full-stack developers, design students who struggle with..."
                 className="w-full px-4 py-2 text-xs rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-600 outline-none placeholder:text-gray-400 text-gray-800 resize-none font-normal"
               />
             </div>
@@ -261,14 +320,27 @@ export default function Screen01Ideate({
 
       {/* Quick Sparks & DB Footer */}
       <div className="flex flex-wrap items-center justify-between gap-3 px-2">
-        <button
-          type="button"
-          onClick={onLoadTrendSparks}
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 text-amber-900 text-xs font-bold rounded-xl hover:from-amber-100 hover:to-orange-100 transition-all shadow-sm"
-        >
-          <TrendingUp className="w-4 h-4 text-amber-600" />
-          <span>⚡ Load AI Trend Sparks (5 Samples)</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onLoadTrendSparks}
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-300 text-amber-900 text-xs font-bold rounded-xl hover:from-amber-100 hover:to-orange-100 transition-all shadow-sm"
+          >
+            <TrendingUp className="w-4 h-4 text-amber-600" />
+            <span>⚡ Load AI Trend Sparks (5 Samples)</span>
+          </button>
+
+          {onOpenInspirationVault && (
+            <button
+              type="button"
+              onClick={onOpenInspirationVault}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-gray-300 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-50 transition-all shadow-sm"
+            >
+              <Lightbulb className="w-4 h-4 text-amber-500" />
+              <span>Story Vault (7 Principles)</span>
+            </button>
+          )}
+        </div>
 
         <div className="flex items-center gap-3">
           <button

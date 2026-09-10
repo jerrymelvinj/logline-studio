@@ -8,6 +8,7 @@ import Screen03ExecutionTable from "@/components/Screen03ExecutionTable";
 import GoogleSheetsModal from "@/components/GoogleSheetsModal";
 import ChannelTemplateModal from "@/components/ChannelTemplateModal";
 import ContentDbModal from "@/components/ContentDbModal";
+import InspirationModal from "@/components/InspirationModal";
 import {
   ContentRecord,
   DraftContentItem,
@@ -49,6 +50,8 @@ export default function Home() {
   const [isContentDbOpen, setIsContentDbOpen] = useState(false);
   const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
   const [isSheetsModalOpen, setIsSheetsModalOpen] = useState(false);
+  const [isInspirationModalOpen, setIsInspirationModalOpen] = useState(false);
+  const [injectedSkeleton, setInjectedSkeleton] = useState("");
 
   // Initialize from LocalStorage
   useEffect(() => {
@@ -325,6 +328,13 @@ export default function Home() {
     showToast("info", "Local database cleared.");
   };
 
+  const handleInjectSkeleton = (skeletonText: string) => {
+    setInjectedSkeleton(skeletonText);
+    setCurrentScreen("ideate");
+    setIsInspirationModalOpen(false);
+    showToast("info", "Story skeleton injected into Draft Studio!");
+  };
+
   return (
     <div className="min-h-screen bg-pageBg flex flex-col font-sans">
       {/* Universal Logline Studio Navbar */}
@@ -335,6 +345,7 @@ export default function Home() {
         onNewContentPiece={() => setCurrentScreen("ideate")}
         onOpenSheetsModal={() => setIsSheetsModalOpen(true)}
         onOpenChannelModal={() => setIsChannelModalOpen(true)}
+        onOpenInspirationVault={() => setIsInspirationModalOpen(true)}
         channelTemplate={channelTemplate}
       />
 
@@ -347,6 +358,8 @@ export default function Home() {
             onLoadTrendSparks={handleLoadTrendSparks}
             onOpenContentDb={() => setIsContentDbOpen(true)}
             channelTemplate={channelTemplate}
+            onOpenInspirationVault={() => setIsInspirationModalOpen(true)}
+            injectedSkeleton={injectedSkeleton}
           />
         )}
 
@@ -382,6 +395,12 @@ export default function Home() {
       </main>
 
       {/* Modals */}
+      <InspirationModal
+        isOpen={isInspirationModalOpen}
+        onClose={() => setIsInspirationModalOpen(false)}
+        onInjectSkeleton={handleInjectSkeleton}
+      />
+
       <ContentDbModal
         isOpen={isContentDbOpen}
         onClose={() => setIsContentDbOpen(false)}
