@@ -70,6 +70,9 @@ export default function Screen02Canvas({
   // Persistent per-item state cache to guarantee auto-saving when switching between items
   const [itemsState, setItemsState] = useState<Record<string, ItemCanvasState>>({});
 
+  // Full-piece Gemini AI fleshing state
+  const [isFleshing, setIsFleshing] = useState(false);
+
   // Granular AI loading states
   const [isExpandingBeats, setIsExpandingBeats] = useState(false);
   const [isSuggestingThumb, setIsSuggestingThumb] = useState(false);
@@ -109,6 +112,43 @@ export default function Screen02Canvas({
       ...prev,
       [activeItem.id]: updated,
     }));
+  };
+
+  // Connected to /api/generate as requested
+  const handleAutoFlesh = async () => {
+    if (!activeItem) return;
+    setIsFleshing(true);
+    try {
+      let startingHook = "";
+      if (activeItem.rawNotes?.includes("[Hook]:")) {
+        startingHook = activeItem.rawNotes.split("[Hook]:")[1]?.split("\n")[0]?.trim() || "";
+      }
+
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: currentCanvas?.title || activeItem.title,
+          hook: startingHook || currentCanvas?.title || activeItem.title,
+          format: activeItem.format,
+          pillar: activeItem.pillar,
+          rawIdea: activeItem.rawNotes || "",
+        }),
+      });
+
+      const result = await res.json();
+      if (result.success && result.data) {
+        // Update form state across Screen 02 fields
+        updateActiveField("beats", result.data.scriptOutline);
+        updateActiveField("thumbnail", result.data.thumbnailBrief);
+        updateActiveField("description", result.data.description);
+        updateActiveField("tags", result.data.seoTags);
+      }
+    } catch (err) {
+      console.error("Failed to flesh out content with Gemini:", err);
+    } finally {
+      setIsFleshing(false);
+    }
   };
 
   // Granular AI Accelerator: Expand to 5-Beat Arc
@@ -280,26 +320,37 @@ export default function Screen02Canvas({
           </p>
         </div>
 
-        {/* Global Batch Action */}
+        {/* Gemini AI Auto-Flesh Action */}
         <div className="flex items-center gap-3">
           <button
-            onClick={onCurateWithAi}
-            disabled={isCurating}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition-all disabled:opacity-50"
-            title="Auto-flesh all queued pieces in batch"
+            onClick={handleAutoFlesh}
+            disabled={isFleshing}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold text-xs rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-50"
+            title="Auto-Flesh current piece with Google Gemini AI"
           >
-            {isCurating ? (
+            {isFleshing ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin text-white" />
-                <span>Auto-Fleshing All...</span>
+                <span>Auto-Fleshing with Gemini AI...</span>
               </>
             ) : (
               <>
                 <Sparkles className="w-4 h-4 text-amber-300" />
-                <span>Auto-Flesh All Pieces ➔</span>
+                <span>Auto-Flesh with Gemini AI ➔</span>
               </>
             )}
           </button>
+
+          {items.length > 1 && (
+            <button
+              onClick={onCurateWithAi}
+              disabled={isCurating}
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs rounded-xl transition-colors"
+              title="Flesh out all pieces in pipeline at once"
+            >
+              <span>Batch All ({items.length})</span>
+            </button>
+          )}
         </div>
       </div>
 

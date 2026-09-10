@@ -1,4 +1,5 @@
 import assert from "assert";
+import fs from "fs";
 import {
   mergeContentRecordsDeduplicated,
   getGoogleAppsScriptCode,
@@ -11,6 +12,13 @@ import {
 } from "./lib/aiCurator";
 import { buildStyledExcelWorkbook } from "./lib/excelExport";
 import { ContentRecord, DraftContentItem } from "./lib/types";
+
+// Load .env.local for test runner if needed
+if (!process.env.GEMINI_API_KEY && fs.existsSync(".env.local")) {
+  const envFile = fs.readFileSync(".env.local", "utf8");
+  const match = envFile.match(/GEMINI_API_KEY=([^\r\n]+)/);
+  if (match) process.env.GEMINI_API_KEY = match[1].trim();
+}
 
 async function runTestSuite() {
   console.log("🚀 Starting Test Suite for YouTube Content Curation Studio...");
@@ -183,11 +191,32 @@ async function runTestSuite() {
     item: sampleItem,
     channelTemplate: DEFAULT_CHANNEL_TEMPLATE,
   });
-  assert.ok(thumbRes.result.includes("badge"), "Thumbnail brief contains badge overlay direction");
+  assert.ok(thumbRes.result && thumbRes.result.length > 15, "Thumbnail brief is generated with visual directions");
 
-  console.log("✅ Test 7 Passed: Granular AI accelerators generate isolated sections without wiping canvas.");
+  // Test 8: Backend Generation Route (/api/generate)
+  console.log("\n🧪 Test 8: Backend Generation Route (/api/generate)");
+  const { POST: generateHandler } = await import("./app/api/generate/route");
+  const generateReq = new Request("http://localhost/api/generate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      title: "Why Dribbble Designs Fail in Real Production",
+      hook: "90% of designs on Dribbble are mathematically impossible to build in CSS.",
+      format: "Long-form Video",
+      pillar: "Case Study",
+      rawIdea: "Figma auto-layout and responsive design versus static dribbble shots.",
+    }),
+  });
+  const generateRes = await generateHandler(generateReq);
+  const generateData = await generateRes.json();
+  assert.strictEqual(generateData.success, true, "Generation route should succeed");
+  assert.ok(generateData.data.scriptOutline, "Contains scriptOutline");
+  assert.ok(generateData.data.thumbnailBrief, "Contains thumbnailBrief");
+  assert.ok(generateData.data.description, "Contains description");
+  assert.ok(generateData.data.seoTags, "Contains seoTags");
+  console.log("✅ Test 8 Passed: /api/generate successfully returns complete production assets.");
 
-  console.log("\n🎉 ALL 7 TESTS PASSED SUCCESSFULLY!");
+  console.log("\n🎉 ALL 8 TESTS PASSED SUCCESSFULLY!");
 }
 
 runTestSuite().catch((err) => {

@@ -173,7 +173,7 @@ export async function curateContentWithGemini(
 
   try {
     const genAI = new GoogleGenerativeAI(activeKey);
-    const modelCandidates = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash", "gemini-flash-latest"];
+    const modelCandidates = ["gemini-flash-latest", "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash"];
     let model = genAI.getGenerativeModel({ model: modelCandidates[0] });
 
     const storytellingGuidance = `
@@ -366,7 +366,7 @@ export async function unpackRawIdeaWithGemini(
 
   try {
     const genAI = new GoogleGenerativeAI(activeKey);
-    const modelCandidates = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash", "gemini-flash-latest"];
+    const modelCandidates = ["gemini-flash-latest", "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash"];
 
     const prompt = `You are an elite YouTube Content Producer and Creative Strategist at Logline Studio.
 The creator has provided a messy, raw thought or scratchpad brain dump:
@@ -488,7 +488,7 @@ export async function granularFleshWithGemini({
 
   try {
     const genAI = new GoogleGenerativeAI(activeKey);
-    const modelCandidates = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash", "gemini-flash-latest"];
+    const modelCandidates = ["gemini-flash-latest", "gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash"];
 
     let prompt = "";
     if (type === "outline") {
