@@ -146,7 +146,48 @@ async function runTestSuite() {
   assert.ok(scriptCode.includes("#00529B"), "Script styles header with Royal Blue");
   console.log("✅ Test 5 Passed: Google Apps Script helper is complete & correct.");
 
-  console.log("\n🎉 ALL 5 TESTS PASSED SUCCESSFULLY!");
+  // Test 6: Cold-Start Unpack & Frame Engine
+  console.log("\n🧪 Test 6: Cold-Start Raw Idea Unpacking (Phase 1)");
+  const { generateOfflineUnpackedIdea, granularFleshWithGemini } = await import("./lib/aiCurator");
+  const rawBrainDump = "I spent two weeks redesigning my workflow in Framer and realized 90% of tutorials overcomplicate responsiveness.";
+  const unpacked = generateOfflineUnpackedIdea(rawBrainDump, DEFAULT_CHANNEL_TEMPLATE);
+  assert.strictEqual(unpacked.titles.length, 3, "Should return 3 title options");
+  assert.ok(unpacked.titles.some((t) => t.style === "Curiosity"), "Contains Curiosity style");
+  assert.ok(unpacked.titles.some((t) => t.style === "Direct / How-To"), "Contains Direct / How-To style");
+  assert.ok(unpacked.titles.some((t) => t.style === "High-Stakes"), "Contains High-Stakes style");
+  assert.strictEqual(unpacked.hooks.length, 3, "Should return 3 hook archetypes");
+  assert.ok(unpacked.hooks.some((h) => h.archetype === "The Contrast Opening"), "Contains Contrast Opening");
+  assert.ok(unpacked.hooks.some((h) => h.archetype === "The Hard Truth"), "Contains Hard Truth");
+  assert.ok(unpacked.hooks.some((h) => h.archetype === "The Before/After"), "Contains Before/After");
+  console.log("✅ Test 6 Passed: Raw brain dump unpacked into 3 title options & 3 hook archetypes.");
+
+  // Test 7: Granular AI Accelerators (Phase 2 Modular Flesh)
+  console.log("\n🧪 Test 7: Granular AI Accelerators (Outline, Thumbnail, Description)");
+  const sampleItem: DraftContentItem = {
+    id: "test-item-1",
+    title: "How to Build Production-Ready Next.js Apps",
+    format: "Long-form Video",
+    pillar: "Tutorial",
+    rawNotes: "Key points: Server actions, cache revalidation, streaming suspense.",
+    targetChannel: DEFAULT_CHANNEL_TEMPLATE.name,
+  };
+  const outlineRes = await granularFleshWithGemini({
+    type: "outline",
+    item: sampleItem,
+    channelTemplate: DEFAULT_CHANNEL_TEMPLATE,
+  });
+  assert.ok(outlineRes.result.includes("0:00"), "Outline contains timestamped beats");
+
+  const thumbRes = await granularFleshWithGemini({
+    type: "thumbnail",
+    item: sampleItem,
+    channelTemplate: DEFAULT_CHANNEL_TEMPLATE,
+  });
+  assert.ok(thumbRes.result.includes("badge"), "Thumbnail brief contains badge overlay direction");
+
+  console.log("✅ Test 7 Passed: Granular AI accelerators generate isolated sections without wiping canvas.");
+
+  console.log("\n🎉 ALL 7 TESTS PASSED SUCCESSFULLY!");
 }
 
 runTestSuite().catch((err) => {

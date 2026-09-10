@@ -13,6 +13,7 @@ import {
   FileSpreadsheet,
   ExternalLink,
   Lightbulb,
+  ChevronRight,
 } from "lucide-react";
 import { ChannelTemplate } from "@/lib/types";
 import { DEFAULT_GOOGLE_SHEET_URL } from "@/lib/googleSheetsSync";
@@ -61,37 +62,70 @@ export default function Navbar({
           </div>
         </div>
 
-        {/* Global Navigation Links */}
+        {/* Global Navigation Links with Step Indicator */}
         <nav className="hidden md:flex items-center space-x-1 bg-gray-100/90 p-1 rounded-xl border border-gray-200/80">
           <button
             onClick={() => onNavigate("ideate")}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
               currentScreen === "ideate"
-                ? "bg-white text-gray-900 shadow-sm"
+                ? "bg-white text-gray-950 shadow-sm"
                 : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
             }`}
           >
-            01 Draft
+            <span
+              className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-mono ${
+                currentScreen === "ideate"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-gray-700"
+              }`}
+            >
+              1
+            </span>
+            <span>01 Draft</span>
           </button>
+
+          <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+
           <button
             onClick={() => onNavigate("canvas")}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
               currentScreen === "canvas"
-                ? "bg-white text-gray-900 shadow-sm"
+                ? "bg-white text-gray-950 shadow-sm"
                 : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
             }`}
           >
-            02 Canvas
+            <span
+              className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-mono ${
+                currentScreen === "canvas"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-gray-700"
+              }`}
+            >
+              2
+            </span>
+            <span>02 Flesh Out</span>
           </button>
+
+          <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+
           <button
             onClick={() => onNavigate("execution")}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
               currentScreen === "execution"
-                ? "bg-white text-gray-900 shadow-sm"
+                ? "bg-white text-gray-950 shadow-sm"
                 : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
             }`}
           >
-            03 Pipeline
+            <span
+              className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-mono ${
+                currentScreen === "execution"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-gray-700"
+              }`}
+            >
+              3
+            </span>
+            <span>03 Queue to Sheet</span>
           </button>
         </nav>
       </div>

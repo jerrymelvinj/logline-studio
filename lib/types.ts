@@ -60,3 +60,22 @@ export interface SyncNotification {
   errorMessage?: string;
   details?: string;
 }
+
+export interface TitleOption {
+  style: "Curiosity" | "Direct / How-To" | "High-Stakes";
+  title: string;
+}
+
+export interface HookOption {
+  archetype: "The Contrast Opening" | "The Hard Truth" | "The Before/After";
+  hook: string;
+}
+
+export interface UnpackedIdeaResult {
+  titles: TitleOption[];
+  hooks: HookOption[];
+  suggestedPillar?: string;
+  suggestedFormat?: ContentFormat;
+  targetAudienceAngle?: string;
+}
+

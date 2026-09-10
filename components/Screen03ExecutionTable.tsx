@@ -20,6 +20,7 @@ import {
   Search,
   Clapperboard,
   Plus,
+  Zap,
 } from "lucide-react";
 import { ContentRecord, ContentStatus, ContentFormat, SyncNotification } from "@/lib/types";
 import { DEFAULT_GOOGLE_SHEET_URL } from "@/lib/googleSheetsSync";
@@ -330,22 +331,39 @@ export default function Screen03ExecutionTable({
                           }
                           className="w-full bg-transparent border-0 border-b border-transparent hover:border-gray-300 focus:border-blue-600 focus:bg-white px-1 py-0.5 rounded outline-none font-bold text-gray-900 transition-all"
                         />
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-[10px] text-blue-700 font-semibold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
-                            {rec.pillar}
-                          </span>
-                          {rec.titleVariations && rec.titleVariations.length > 1 && (
-                            <span
-                              onClick={() => setSelectedRowDetail(rec)}
-                              className="text-[10px] text-blue-600 hover:underline cursor-pointer"
-                            >
-                              +{rec.titleVariations.length - 1} alt titles
+                        <div className="flex items-center justify-between gap-1.5 mt-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-blue-700 font-semibold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
+                              {rec.pillar}
                             </span>
-                          )}
+                            {rec.titleVariations && rec.titleVariations.length > 1 && (
+                              <span
+                                onClick={() => setSelectedRowDetail(rec)}
+                                className="text-[10px] text-blue-600 hover:underline cursor-pointer"
+                              >
+                                +{rec.titleVariations.length - 1} alt titles
+                              </span>
+                            )}
+                          </div>
+                          {/* Character Count Validation */}
+                          <span
+                            className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                              rec.title.length > 60
+                                ? "text-amber-800 bg-amber-100 border border-amber-300"
+                                : "text-emerald-700 bg-emerald-50"
+                            }`}
+                            title={
+                              rec.title.length > 60
+                                ? "Warning: May be truncated on mobile search (>60 chars)"
+                                : "Optimal search title length (≤60 chars)"
+                            }
+                          >
+                            {rec.title.length}c {rec.title.length > 60 && "⚠️ >60"}
+                          </span>
                         </div>
                       </td>
 
-                      {/* Format */}
+                      {/* Format & Auto-tagging indicator */}
                       <td className="py-2.5 px-3 border-r border-gray-100">
                         <select
                           value={rec.format}
@@ -360,6 +378,18 @@ export default function Screen03ExecutionTable({
                             </option>
                           ))}
                         </select>
+                        {/* Auto-detected Short badge if outline has under 60s or marked short */}
+                        {(rec.format === "YouTube Short" ||
+                          rec.scriptOutline?.toLowerCase().includes("short") ||
+                          rec.scriptOutline?.toLowerCase().includes("<60") ||
+                          rec.scriptOutline?.toLowerCase().includes("45s")) && (
+                          <div className="mt-1 flex items-center">
+                            <span className="text-[9px] font-extrabold uppercase bg-rose-50 text-rose-700 px-1.5 py-0.5 rounded border border-rose-200 flex items-center gap-0.5">
+                              <Zap className="w-2.5 h-2.5 text-rose-500" />
+                              Short (≤60s)
+                            </span>
+                          </div>
+                        )}
                       </td>
 
                       {/* Hook / Logline */}

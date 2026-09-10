@@ -1,5 +1,13 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { ContentRecord, DraftContentItem, ChannelTemplate } from "./types";
+import {
+  ContentRecord,
+  DraftContentItem,
+  ChannelTemplate,
+  UnpackedIdeaResult,
+  TitleOption,
+  HookOption,
+  ContentFormat,
+} from "./types";
 import { LOGLINE_STORY_PRINCIPLES } from "./inspirationPrinciples";
 
 export const DEFAULT_CHANNEL_TEMPLATE: ChannelTemplate = {
@@ -282,3 +290,283 @@ IMPORTANT: Return ONLY valid raw JSON without markdown code fences (\`\`\`json).
     return items.map((item, idx) => generateOfflineContentCuration(item, channelTemplate, idx));
   }
 }
+
+/**
+ * Intelligent Heuristic Generator for Unpacking Raw Brain Dumps (Offline Fallback)
+ */
+export function generateOfflineUnpackedIdea(
+  rawIdea: string,
+  channelTemplate: ChannelTemplate
+): UnpackedIdeaResult {
+  const cleanIdea = rawIdea.trim() || "My New Video Project";
+  // Extract up to 6 words for a topic slug
+  const topicWords = cleanIdea
+    .replace(/[^\w\s]/gi, "")
+    .split(/\s+/)
+    .slice(0, 6)
+    .join(" ");
+
+  const capitalizedTopic = topicWords
+    .split(" ")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+
+  return {
+    titles: [
+      {
+        style: "Curiosity",
+        title: `The Harsh Reality of ${capitalizedTopic}`,
+      },
+      {
+        style: "Direct / How-To",
+        title: `How to Master ${capitalizedTopic} (Step-by-Step)`,
+      },
+      {
+        style: "High-Stakes",
+        title: `Stop Doing ${capitalizedTopic} Until You Watch This`,
+      },
+    ],
+    hooks: [
+      {
+        archetype: "The Contrast Opening",
+        hook: `Most creators think ${topicWords.toLowerCase()} requires endless effort. But here is the exact 3-step shift that changed everything for me.`,
+      },
+      {
+        archetype: "The Hard Truth",
+        hook: `I wasted weeks struggling with this exact problem, only to realize 90% of conventional tutorials are teaching it backwards.`,
+      },
+      {
+        archetype: "The Before/After",
+        hook: `Here is what happened when I completely overhauled my approach to ${topicWords.toLowerCase()}—and why you should do it today.`,
+      },
+    ],
+    suggestedPillar: cleanIdea.toLowerCase().includes("how") || cleanIdea.toLowerCase().includes("tutorial")
+      ? "Tutorial"
+      : cleanIdea.toLowerCase().includes("redesign") || cleanIdea.toLowerCase().includes("client")
+      ? "Case Study"
+      : "Breakdown",
+    suggestedFormat: cleanIdea.length < 50 ? "YouTube Short" : "Long-form Video",
+    targetAudienceAngle: `Engineers, creators, and problem-solvers facing bottlenecks with ${topicWords.toLowerCase()}`,
+  };
+}
+
+/**
+ * Unpacks a raw brain dump into 3 punchy titles and 3 hook archetypes using Gemini
+ */
+export async function unpackRawIdeaWithGemini(
+  rawIdea: string,
+  channelTemplate: ChannelTemplate,
+  apiKey?: string
+): Promise<UnpackedIdeaResult> {
+  const activeKey = apiKey || process.env.GEMINI_API_KEY;
+
+  if (!activeKey) {
+    return generateOfflineUnpackedIdea(rawIdea, channelTemplate);
+  }
+
+  try {
+    const genAI = new GoogleGenerativeAI(activeKey);
+    const modelCandidates = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash", "gemini-flash-latest"];
+
+    const prompt = `You are an elite YouTube Content Producer and Creative Strategist at Logline Studio.
+The creator has provided a messy, raw thought or scratchpad brain dump:
+"${rawIdea}"
+
+Channel Context:
+- Channel: ${channelTemplate.name}
+- Niche: ${channelTemplate.niche}
+- Tone: ${channelTemplate.tone}
+
+Your goal: Eliminate the creator's "Cold Start" friction by unpacking this raw thought into high-impact packaging options:
+1. 3 Clickable Title Variations (under 60 characters each, high CTR, emotional curiosity, zero spam):
+   - One "Curiosity" title (intriguing question or unexpected paradox)
+   - One "Direct / How-To" title (clear value proposition, search-friendly)
+   - One "High-Stakes" title (urgent, mistake-avoidance, contrarian)
+2. 3 Hook Archetypes (the opening 10-15s verbal script trigger that stops the scroll):
+   - Archetype "The Contrast Opening" (expectation vs reality)
+   - Archetype "The Hard Truth" (vulnerable admission or misconception)
+   - Archetype "The Before/After" (clear transformation with proof)
+3. Suggested Content Pillar (e.g. Tutorial, Case Study, Breakdown, Deep Dive, Vlog / BTS, Opinion / Tech News)
+4. Suggested Format (Long-form Video or YouTube Short)
+5. Target Audience Angle (1 sentence on who this is specifically for)
+
+Return STRICT JSON matching this exact structure:
+{
+  "titles": [
+    { "style": "Curiosity", "title": "..." },
+    { "style": "Direct / How-To", "title": "..." },
+    { "style": "High-Stakes", "title": "..." }
+  ],
+  "hooks": [
+    { "archetype": "The Contrast Opening", "hook": "..." },
+    { "archetype": "The Hard Truth", "hook": "..." },
+    { "archetype": "The Before/After", "hook": "..." }
+  ],
+  "suggestedPillar": "Tutorial",
+  "suggestedFormat": "Long-form Video",
+  "targetAudienceAngle": "..."
+}
+
+IMPORTANT: Return ONLY valid raw JSON. No markdown code fences, no explanations.`;
+
+    let response;
+    for (const mName of modelCandidates) {
+      try {
+        const model = genAI.getGenerativeModel({ model: mName });
+        response = await model.generateContent(prompt);
+        break;
+      } catch (err: any) {
+        console.warn(`Model ${mName} failed in unpackRawIdea: ${err.message}. Trying next candidate...`);
+      }
+    }
+
+    if (!response) {
+      throw new Error("All Gemini models failed for unpackRawIdea.");
+    }
+
+    let text = response.response.text().trim();
+    if (text.startsWith("```json")) {
+      text = text.replace(/^```json\s*/, "").replace(/\s*```$/, "");
+    } else if (text.startsWith("```")) {
+      text = text.replace(/^```\s*/, "").replace(/\s*```$/, "");
+    }
+
+    const parsed = JSON.parse(text) as UnpackedIdeaResult;
+    if (!parsed.titles || !parsed.hooks) {
+      throw new Error("Invalid schema from Gemini unpack");
+    }
+
+    return parsed;
+  } catch (err: any) {
+    console.warn("Gemini unpack error, falling back to heuristic engine:", err.message);
+    return generateOfflineUnpackedIdea(rawIdea, channelTemplate);
+  }
+}
+
+/**
+ * Granular AI Accelerators for isolated sections in Production Canvas
+ */
+export async function granularFleshWithGemini({
+  type,
+  item,
+  currentRecord,
+  channelTemplate,
+  apiKey,
+}: {
+  type: "outline" | "thumbnail" | "description" | "tags";
+  item: DraftContentItem;
+  currentRecord?: Partial<ContentRecord>;
+  channelTemplate: ChannelTemplate;
+  apiKey?: string;
+}): Promise<{ result: string }> {
+  const activeKey = apiKey || process.env.GEMINI_API_KEY;
+  const title = currentRecord?.title || item.title || "Untitled Video";
+  const notes = item.rawNotes || currentRecord?.notes || "";
+
+  // Offline Fallback Generators
+  if (!activeKey) {
+    if (type === "outline") {
+      return {
+        result: `0:00 Hook & Lived Scene: [Set the stakes with sensory detail]\n0:45 Conflict / Failed Attempt: [Why the common solution failed]\n2:15 The Unexpected Discovery: [The breakthrough concept or tool]\n4:30 Step-by-Step Blueprint: [Actionable implementation]\n7:00 Takeaway & Meaning: [Universal lesson & bridge to next video]`,
+      };
+    }
+    if (type === "thumbnail") {
+      const words = title.split(" ").slice(0, 3).join(" ").toUpperCase();
+      return {
+        result: `[Horizontal 16:9 - High Contrast] Split composition. Left: Blurred UI/problem preview. Right: Authentic expressive creator reaction. Bold 3-word badge overlay: "${words}". Low visual clutter.`,
+      };
+    }
+    if (type === "description") {
+      return {
+        result: `${title}\n\n📌 In this breakdown, we explore practical solutions to overcome common bottlenecks.\n\n⏱️ Chapters:\n0:00 - The Problem\n0:45 - What Failed First\n2:15 - The Turning Point\n4:30 - Complete Blueprint\n7:00 - Key Takeaway\n\n---\n${channelTemplate.defaultOutro}\n\n🔗 ${channelTemplate.socialLinks}`,
+      };
+    }
+    return {
+      result: `${item.pillar.toLowerCase()}, ${item.format.toLowerCase().replace(" ", "-")}, software engineering, coding, tech career, workflow tips`,
+    };
+  }
+
+  try {
+    const genAI = new GoogleGenerativeAI(activeKey);
+    const modelCandidates = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash", "gemini-flash-latest"];
+
+    let prompt = "";
+    if (type === "outline") {
+      prompt = `You are an elite YouTube Script Doctor.
+Title: "${title}"
+Context & Notes: "${notes}"
+Channel Tone: ${channelTemplate.tone}
+
+Expand this into an actionable 5-Beat Narrative Script Outline with realistic timestamps:
+- 0:00 [Hook & Lived Scene]: Cold open with sensory detail & central tension.
+- [The Conflict / Failed Attempt]: Honest vulnerability; what went wrong first.
+- [The Unexpected Discovery]: The pivot point / eureka moment.
+- [The Step-by-Step Blueprint]: Concrete, actionable breakdown.
+- [Takeaway & Concise Bridge]: Universal meaning for the viewer + fast bridge to the next video (no filler outro).
+
+Return ONLY the plain formatted outline with timestamps. No introductory banter.`;
+    } else if (type === "thumbnail") {
+      prompt = `You are an expert YouTube Thumbnail Visual Director.
+Title: "${title}"
+Context: "${notes}"
+
+Generate a punchy, high-CTR, low-cognitive-noise Visual Thumbnail Brief:
+1. Composition & Lighting: High contrast, framing.
+2. Subject Emotion / Focus: Authentic reaction.
+3. Bold Text Hook: EXACTLY 2 to 3 punchy, high-contrast words for the thumbnail badge.
+4. Background: Minimal clutter, clean contrast.
+
+Return ONLY the concise visual brief.`;
+    } else if (type === "description") {
+      prompt = `You are a YouTube SEO and Channel Manager.
+Title: "${title}"
+Notes: "${notes}"
+Outro: "${channelTemplate.defaultOutro}"
+Socials: "${channelTemplate.socialLinks}"
+
+Write a clean, engaging YouTube video description including:
+1. High-value 2-sentence hook & summary.
+2. Timestamped chapter list based on the core narrative beats.
+3. Channel Outro and Social links.
+
+Return ONLY the final ready-to-paste description.`;
+    } else {
+      prompt = `Generate 12-15 high-ranking, search-intent YouTube tags and comma-separated keywords for:
+Title: "${title}"
+Notes: "${notes}"
+Niche: "${channelTemplate.niche}"
+
+Return ONLY comma-separated tags.`;
+    }
+
+    let response;
+    for (const mName of modelCandidates) {
+      try {
+        const model = genAI.getGenerativeModel({ model: mName });
+        response = await model.generateContent(prompt);
+        break;
+      } catch (err: any) {
+        console.warn(`Model ${mName} error in granularFlesh: ${err.message}`);
+      }
+    }
+
+    if (!response) {
+      throw new Error("All Gemini candidates failed in granularFlesh");
+    }
+
+    return { result: response.response.text().trim() };
+  } catch (err: any) {
+    console.warn("Falling back to heuristic in granularFlesh:", err.message);
+    return {
+      result:
+        type === "outline"
+          ? `0:00 Hook\n1:00 Problem & Struggle\n2:30 Discovery\n4:00 Blueprint\n6:00 Takeaway`
+          : type === "thumbnail"
+          ? `High contrast visual for "${title}". Bold 3-word text badge.`
+          : type === "description"
+          ? `${title}\n\n---\n${channelTemplate.defaultOutro}`
+          : "youtube, coding, tutorial",
+    };
+  }
+}
+
