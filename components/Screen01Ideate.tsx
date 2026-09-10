@@ -15,14 +15,17 @@ import {
   Loader2,
   Check,
   Wand2,
+  Compass,
 } from "lucide-react";
 import {
   DraftContentItem,
   ContentFormat,
   ChannelTemplate,
   UnpackedIdeaResult,
+  TrendValidationResult,
 } from "@/lib/types";
 import { DEFAULT_GOOGLE_SHEET_URL } from "@/lib/googleSheetsSync";
+import TrendValidationModal from "@/components/TrendValidationModal";
 
 interface Screen01IdeateProps {
   onSendToCanvas: (item: DraftContentItem) => void;
@@ -74,6 +77,10 @@ export default function Screen01Ideate({
   const [unpackedResult, setUnpackedResult] = useState<UnpackedIdeaResult | null>(null);
   const [selectedTitleIdx, setSelectedTitleIdx] = useState<number | null>(null);
   const [selectedHookIdx, setSelectedHookIdx] = useState<number | null>(null);
+
+  // Trend & Saturation Validation State
+  const [isTrendModalOpen, setIsTrendModalOpen] = useState(false);
+  const [lastTrendValidation, setLastTrendValidation] = useState<TrendValidationResult | null>(null);
 
   useEffect(() => {
     if (injectedSkeleton) {
@@ -264,6 +271,16 @@ export default function Screen01Ideate({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  onClick={() => setIsTrendModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 rounded-xl text-xs font-bold transition-all shadow-xs"
+                  title="Validate market saturation & discover 2026 news hooks"
+                >
+                  <Compass className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Validate Trend & Saturation</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={handleInsert5QuestionSkeleton}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-amber-300 text-amber-900 hover:bg-amber-50 rounded-xl text-xs font-bold transition-all shadow-xs"
                   title="Insert 5-question narrative data pattern"
@@ -284,6 +301,33 @@ export default function Screen01Ideate({
                 )}
               </div>
             </div>
+
+            {/* In-line Saturation Summary (if validated) */}
+            {lastTrendValidation && (
+              <div className="mt-3 p-3 rounded-xl bg-indigo-50/50 border border-indigo-200 flex items-center justify-between text-xs shadow-xs animate-in fade-in zoom-in-95 duration-200">
+                <div className="flex items-center gap-2">
+                  <span className="font-extrabold uppercase text-[10px] text-indigo-700 tracking-wider">Market Saturation:</span>
+                  <span className={`px-2 py-0.5 rounded text-[11px] font-extrabold border ${
+                    lastTrendValidation.saturationLevel === "High" ? "bg-rose-50 text-rose-800 border-rose-200" :
+                    lastTrendValidation.saturationLevel === "Moderate" ? "bg-amber-50 text-amber-800 border-amber-200" :
+                    "bg-emerald-50 text-emerald-800 border-emerald-200"
+                  }`}>
+                    {lastTrendValidation.saturationLevel} ({lastTrendValidation.saturationScore}%)
+                  </span>
+                  <span className="text-gray-600 font-medium truncate max-w-sm hidden md:inline">
+                    {lastTrendValidation.opportunityVerdict}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsTrendModalOpen(true)}
+                  className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-colors"
+                >
+                  <span>View Full Intel</span>
+                  <ExternalLink className="w-3 h-3" />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* AI HANDOFF SECTION: Interactive Title & Hook Chips */}
@@ -559,6 +603,23 @@ export default function Screen01Ideate({
           </a>
         </div>
       </div>
+
+      <TrendValidationModal
+        isOpen={isTrendModalOpen}
+        onClose={() => setIsTrendModalOpen(false)}
+        initialQuery={rawIdea.trim() || title.trim()}
+        onSelectHook={(selectedHook) => {
+          setHook(selectedHook);
+          // Optional visual feedback handled in modal
+        }}
+        onSelectAngle={(selectedAngle) => {
+          setAudienceAngle(selectedAngle);
+          setRawNotes((prev) => prev ? `${prev}\n\n[Angle]: ${selectedAngle}` : `[Angle]: ${selectedAngle}`);
+        }}
+        onValidationComplete={(result) => {
+          setLastTrendValidation(result);
+        }}
+      />
     </div>
   );
 }

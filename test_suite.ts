@@ -216,7 +216,24 @@ async function runTestSuite() {
   assert.ok(generateData.data.seoTags, "Contains seoTags");
   console.log("✅ Test 8 Passed: /api/generate successfully returns complete production assets.");
 
-  console.log("\n🎉 ALL 8 TESTS PASSED SUCCESSFULLY!");
+  // Test 9: Trend Search & Market Saturation Engine
+  console.log("\n🧪 Test 9: Trend Search & Market Saturation Route (/api/trend-search)");
+  const { POST: trendHandler } = await import("./app/api/trend-search/route");
+  const trendReq = new Request("http://localhost/api/trend-search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query: "AI video generation models 2026", topic: "news" }),
+  });
+  const trendRes = await trendHandler(trendReq);
+  const trendData = await trendRes.json();
+  assert.strictEqual(trendData.success, true, "Trend search route should succeed");
+  assert.ok(trendData.data.saturationLevel, "Contains saturationLevel");
+  assert.ok(typeof trendData.data.saturationScore === "number", "Contains saturationScore");
+  assert.ok(trendData.data.newsHooks.length > 0, "Contains at least 1 news hook");
+  assert.ok(trendData.data.sources.length >= 0, "Contains sources array");
+  console.log("✅ Test 9 Passed: /api/trend-search successfully analyzes saturation and extracts news hooks.");
+
+  console.log("\n🎉 ALL 9 TESTS PASSED SUCCESSFULLY!");
 }
 
 runTestSuite().catch((err) => {

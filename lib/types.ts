@@ -79,3 +79,24 @@ export interface UnpackedIdeaResult {
   targetAudienceAngle?: string;
 }
 
+export interface TrendSource {
+  title: string;
+  url: string;
+  snippet: string;
+  publishedDate?: string;
+  score?: number;
+}
+
+export interface TrendValidationResult {
+  query: string;
+  answer: string;
+  saturationLevel: "Low" | "Moderate" | "High";
+  saturationScore: number;
+  saturationRationale: string;
+  opportunityVerdict: string;
+  recommendedAngle: string;
+  newsHooks: string[];
+  sources: TrendSource[];
+  responseTime?: number;
+}
+
