@@ -117,15 +117,18 @@ export default function Screen02Canvas({
   // Thumbnail generation state
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [isGeneratingImg, setIsGeneratingImg] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
 
   // Clear thumbnail preview when switching items
   useEffect(() => {
     setThumbnailUrl(null);
+    setGenError(null);
   }, [selectedIndex]);
 
   // Pollinations API handler
   const handleGenerateThumbnail = async () => {
     setIsGeneratingImg(true);
+    setGenError(null);
     try {
       const res = await fetch("/api/generate-thumbnail", {
         method: "POST",
@@ -136,11 +139,13 @@ export default function Screen02Canvas({
         }),
       });
       const data = await res.json();
-      if (data.success) {
+      if (data.success && data.imageUrl) {
         setThumbnailUrl(data.imageUrl);
+      } else {
+        setGenError(data.error || "Could not generate preview.");
       }
-    } catch (err) {
-      console.error("Thumbnail preview failed:", err);
+    } catch (err: any) {
+      setGenError(err.message || "Network request failed.");
     } finally {
       setIsGeneratingImg(false);
     }
@@ -562,7 +567,7 @@ export default function Screen02Canvas({
                   <button 
                     onClick={handleGenerateThumbnail} 
                     disabled={isGeneratingImg}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-neutral-800 hover:bg-neutral-900 text-white text-[11px] font-bold rounded-lg transition-colors disabled:opacity-60"
+                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-white text-[11px] font-bold rounded-md transition-colors disabled:opacity-50"
                   >
                     {isGeneratingImg ? (
                       <>
@@ -571,15 +576,23 @@ export default function Screen02Canvas({
                       </>
                     ) : (
                       <>
-                        <ImageIcon className="w-3.5 h-3.5" />
-                        <span>🎨 Preview Thumbnail Concept</span>
+                        <span>🖼️ Preview Thumbnail Concept</span>
                       </>
                     )}
                   </button>
 
-                  {thumbnailUrl && (
-                    <div className="mt-3 aspect-video w-full max-w-sm rounded-xl overflow-hidden border border-gray-200 shadow-sm relative group bg-gray-50">
-                      <img src={thumbnailUrl} alt="AI Thumbnail Concept" className="w-full h-full object-cover" />
+                  {genError && (
+                    <p className="mt-2 text-xs text-red-500 font-medium">{genError}</p>
+                  )}
+
+                  {thumbnailUrl && !genError && (
+                    <div className="mt-3 aspect-video w-full max-w-sm rounded-lg overflow-hidden border border-neutral-200 shadow-sm relative group bg-neutral-100">
+                      <img 
+                        src={thumbnailUrl} 
+                        alt="AI Thumbnail Concept" 
+                        className="w-full h-full object-cover" 
+                        onError={() => setGenError("Failed to render image format.")}
+                      />
                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
                         <span className="text-white text-xs font-bold bg-black/60 px-3 py-1.5 rounded-full">
                           Generated via Pollinations AI
